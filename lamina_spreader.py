@@ -82,8 +82,10 @@ CYCLE_THRESH = 0.20
 # the linear region is the best-conditioned straight run of the ramp
 LINEAR_R2 = 0.90
 LINEAR_MIN_PTS = 12
-# fixed tissue-angle window for stiffness, measured from each cycle's own start
+# fixed tissue-angle window for stiffness, measured from tip engagement
 THETA_WINDOW = (0.5, 1.25)
+# tip engagement reference for cycle-local angle zero
+ENGAGE_FORCE_N = 12.0
 # force band used only to score candidate sync lags
 LAG_BAND = (0.40, 0.90)
 
@@ -279,7 +281,7 @@ def per_cycle_lag(d, runs, fmax, pad=15):
     dt = float(np.median(np.diff(d["t_sync"].to_numpy())))
     out = []
     for s, e in runs:
-        rb = ramp_bounds(f, th, None, s, e, fmax)
+        rb = ramp_bounds(f, s, e, fmax)
         if rb is None:
             continue
         i0, _, pk = rb
@@ -294,7 +296,7 @@ def per_cycle_lag(d, runs, fmax, pad=15):
     return np.array(out)
 
 
-def ramp_bounds(f, th, t, s, e, fmax, max_back=60):
+def ramp_bounds(f, s, e, fmax, max_back=60):
     """(start, end, peak) of the distraction manoeuvre.
 
     Peak force marks the spreader pause: while the operator is still advancing
@@ -421,13 +423,19 @@ def fit_cycles(d: pd.DataFrame, runs, fmax: float):
 
     rows, segs = [], []
     for n, (s, e) in enumerate(runs, 1):
-        rb = ramp_bounds(f, th, t, s, e, fmax)
+        rb = ramp_bounds(f, s, e, fmax)
         if rb is None:
             continue
         i0, i1, pk = rb
         ramp = np.arange(i0, i1)
-        th0 = th[i0]  # each cycle is referenced to its own undistracted start
-        thr = th - th0
+
+        f_eng = min(ENGAGE_FORCE_N, 0.60 * f[pk])
+        hit = ramp[f[ramp] >= f_eng]
+        if len(hit) == 0:
+            continue
+        iref = int(hit[0])
+        th_ref = th[iref]
+        thr = th - th_ref
 
         win = ramp[(thr[ramp] >= THETA_WINDOW[0]) & (thr[ramp] <= THETA_WINDOW[1])]
         if len(win) < 5 or np.ptp(tip[win]) < 0.05:
@@ -441,6 +449,7 @@ def fit_cycles(d: pd.DataFrame, runs, fmax: float):
                 "cycle": n,
                 "F_peak_N": round(f[pk], 1),
                 "F_start_N": round(f[i0], 1),
+                "F_engage_N": round(f_eng, 1),
                 "theta_max_deg": round(np.nanmax(thr[ramp]), 2),
                 "ramp_s": round(t[i1 - 1] - t[i0], 1),
                 "k_rot_Nm_deg": round(k_tip * D_O**2 * np.pi / 180.0 / 1000, 3),
@@ -455,7 +464,8 @@ def fit_cycles(d: pd.DataFrame, runs, fmax: float):
             }
         )
         segs.append({"ramp": ramp, "win": win, "lin": lin, "pk": pk,
-                     "th0": th0, "k_tip": k_tip, "b": b, "cycle": n})
+                 "th_ref": th_ref, "k_tip": k_tip, "b": b, "cycle": n,
+                 "f_eng": f_eng})
     return pd.DataFrame(rows), segs
 
 
@@ -465,29 +475,30 @@ def plot_ramp_grid(d, segs, tab, out: Path) -> None:
                   d["delta_tip"].to_numpy())
     fig, axes = plt.subplots(3, 3, figsize=(13.5, 10.5), sharex=True, sharey=True)
     for a, sg, (_, row) in zip(axes.ravel(), segs, tab.iterrows()):
-        x = th[sg["ramp"]] - sg["th0"]
+        x = th[sg["ramp"]] - sg["th_ref"]
         a.axvspan(*THETA_WINDOW, color="tab:green", alpha=0.12)
+        a.axvline(0.0, color="0.6", lw=0.8, ls=":")
         a.plot(x, f[sg["ramp"]], "-o", ms=2.2, lw=0.9, color="0.55",
                label="ramp to spreader pause")
-        a.plot(th[sg["win"]] - sg["th0"], f[sg["win"]], "o", ms=3.5,
+        a.plot(th[sg["win"]] - sg["th_ref"], f[sg["win"]], "o", ms=3.5,
                color="tab:green", label=f"{THETA_WINDOW[0]}-{THETA_WINDOW[1]}$\\degree$")
         if len(sg["lin"]):
-            a.plot(th[sg["lin"]] - sg["th0"], f[sg["lin"]], lw=2.0,
+            a.plot(th[sg["lin"]] - sg["th_ref"], f[sg["lin"]], lw=2.0,
                    color="tab:red", alpha=0.7, label="auto straight run")
         xs = np.linspace(*THETA_WINDOW, 10)
-        a.plot(xs, sg["k_tip"] * D_O * np.radians(xs + sg["th0"]) + sg["b"], "k--",
+        a.plot(xs, sg["k_tip"] * D_O * np.radians(xs + sg["th_ref"]) + sg["b"], "k--",
                lw=1.0)
         a.set_title(f"cycle {sg['cycle']}  |  $k_{{rot}}$="
                     f"{row['k_rot_Nm_deg']:.2f} N\u00b7m/deg, "
                     f"$F_{{pk}}$={row['F_peak_N']:.0f} N", fontsize=9)
         a.grid(alpha=0.3)
     for a in axes[-1]:
-        a.set_xlabel(r"distraction angle from cycle start $\theta$ [deg]")
+        a.set_xlabel(r"distraction angle from tip engagement $\theta$ [deg]")
     for a in axes[:, 0]:
         a.set_ylabel("distraction force [N]")
     axes[0, 0].legend(fontsize=7)
     fig.suptitle(f"{TEST_NAME}  -  loading ramp of each cycle "
-                 f"(shaded = {THETA_WINDOW[0]}-{THETA_WINDOW[1]} deg fit window)")
+                 f"(shaded = {THETA_WINDOW[0]}-{THETA_WINDOW[1]} deg from tip engagement)")
     fig.tight_layout()
     fig.savefig(out, dpi=150)
     print(f"saved {out}")
@@ -603,8 +614,9 @@ def main() -> None:
           f"median {np.median(pcl):+.2f}")
     print(f"unloaded theta baseline (vs CAD table pose): {theta0:+.2f} deg")
     print(f"\n{len(segs)} cycles; k_rot fit over theta = "
-          f"{THETA_WINDOW[0]}-{THETA_WINDOW[1]} deg from each cycle's own start "
-          f"(auto_* = where the data itself stays straight)")
+          f"{THETA_WINDOW[0]}-{THETA_WINDOW[1]} deg from tip engagement at "
+          f"{ENGAGE_FORCE_N:.1f} N (capped at 60% of each cycle peak); "
+          f"auto_* = where the data itself stays straight")
     print(tab.to_string(index=False))
     k_rot = tab["k_rot_Nm_deg"]
     print(f"\nk_rot = {k_rot.mean():.3f} +/- {k_rot.std():.3f} N.m/deg "
