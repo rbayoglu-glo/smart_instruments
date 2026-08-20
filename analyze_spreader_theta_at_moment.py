@@ -164,7 +164,7 @@ def main() -> None:
             if len(order) > 2:
                 rho = np.corrcoef([SURGICAL_ORDER.index(x) for x in order],
                                   list(range(len(order))))[0, 1]
-            print(f"\nM = {tgt:.1f} Nm  (F = {tgt / ls.D_O * 1000:.0f} N)   "
+            print(f"\nM = {tgt:.1f} Nm  (F = {ls.moment_to_force_n(tgt):.0f} N)   "
                   f"rank corr vs surgical order: {rho:+.2f}")
             for i, row in r.iterrows():
                 print(f"  {i + 1:>2}. {row['intervention']:<18} "
@@ -178,7 +178,7 @@ def main() -> None:
           .sort_values("F_peak_N", ascending=False).to_string(index=False))
 
     # median loading curves, tip-engagement reference only
-    m_eng_nominal = ls.ENGAGE_FORCE_N * ls.D_O / 1000.0
+    m_eng_nominal = ls.force_to_moment_nm(ls.ENGAGE_FORCE_N)
     grid = np.linspace(min(m_eng_nominal, min(TARGET_MOMENTS_NM)),
                        max(TARGET_MOMENTS_NM), 80)
     fig, ax = plt.subplots(1, 1, figsize=(8.6, 5.8))
@@ -211,7 +211,7 @@ def main() -> None:
             zorder=3,
         )
         f_eng_med = float(summ.loc[summ["intervention"] == label, "F_eng_N"].iloc[0])
-        m_eng = f_eng_med * ls.D_O / 1000.0
+        m_eng = ls.force_to_moment_nm(f_eng_med)
         # Engagement reference point: theta_eng is exactly zero at M_eng.
         ax.plot(m_eng, 0.0, marker=st["marker"], ms=5.5, color=st["color"],
                 mfc="white", mew=1.0)

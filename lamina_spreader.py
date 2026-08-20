@@ -39,7 +39,8 @@ OUT_DIR = Path(__file__).parent / "output"
 FORCE_COL = "Spreader (SRC2475-LN1-02) on Ch 01.02.02 Calibrated Values"
 SPREADER_UUID = "d80d3bb5-9174-4bf3-811e-e31423da384a"
 
-D_O = 139.0  # mm, distal tip -> pivot
+# Effective force application distance from pivot to contact region midpoint [mm].
+D_O = 131.87
 
 # DRB markers in the tracker pattern frame (patterns_0042_*.json, "Excelsius Array #8")
 PATTERN_MARKERS = np.array(
@@ -93,6 +94,31 @@ LAG_BAND = (0.40, 0.90)
 # --------------------------------------------------------------------------- #
 # helpers
 # --------------------------------------------------------------------------- #
+def force_to_moment_nm(force_n):
+    """Convert distraction force [N] to pivot moment [N.m] using current D_O."""
+    return force_n * D_O / 1000.0
+
+
+def moment_to_force_n(moment_nm):
+    """Convert pivot moment [N.m] to distraction force [N] using current D_O."""
+    return moment_nm * 1000.0 / D_O
+
+
+def theta_deg_to_tip_mm(theta_deg):
+    """Convert distraction angle [deg] to tip displacement [mm] using current D_O."""
+    return D_O * np.radians(theta_deg)
+
+
+def tip_mm_to_theta_deg(delta_tip_mm):
+    """Convert tip displacement [mm] to distraction angle [deg] using current D_O."""
+    return np.degrees(delta_tip_mm / D_O)
+
+
+def k_rot_to_k_linear_factor() -> float:
+    """Scale factor to convert k_rot [N.m/deg] to k_linear [N/mm]."""
+    return 1000.0 / (D_O**2 * np.pi / 180.0)
+
+
 def kabsch(src: np.ndarray, dst: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
     """Rigid transform R, t with dst ~= src @ R.T + t."""
     cs, cd = src.mean(0), dst.mean(0)
@@ -390,8 +416,8 @@ def sync(kin: pd.DataFrame, force: pd.DataFrame, lag: float):
     fmax = float(force["force"].max())
     theta0 = k.loc[k["force"] < 0.15 * fmax, "theta_sm"].median()
     k["theta_dist"] = k["theta_sm"] - theta0
-    k["delta_tip"] = D_O * np.radians(k["theta_dist"])
-    k["moment"] = k["force"] * D_O / 1000.0  # N.m about the pivot
+    k["delta_tip"] = theta_deg_to_tip_mm(k["theta_dist"])
+    k["moment"] = force_to_moment_nm(k["force"])  # N.m about the pivot
     d = k[k["force"].notna() & k["theta_dist"].notna()].reset_index(drop=True)
     return d, theta0, fmax
 
@@ -420,6 +446,7 @@ def fit_cycles(d: pd.DataFrame, runs, fmax: float):
     tip = d["delta_tip"].to_numpy()
     th = d["theta_dist"].to_numpy()
     t = d["t_sync"].to_numpy()
+    k_linear_factor = k_rot_to_k_linear_factor()
 
     rows, segs = [], []
     for n, (s, e) in enumerate(runs, 1):
@@ -452,14 +479,15 @@ def fit_cycles(d: pd.DataFrame, runs, fmax: float):
                 "F_engage_N": round(f_eng, 1),
                 "theta_max_deg": round(np.nanmax(thr[ramp]), 2),
                 "ramp_s": round(t[i1 - 1] - t[i0], 1),
-                "k_rot_Nm_deg": round(k_tip * D_O**2 * np.pi / 180.0 / 1000, 3),
+                "k_rot_Nm_deg": round(k_tip / k_linear_factor, 3),
                 "R2": round(np.corrcoef(tip[win], f[win])[0, 1] ** 2, 3),
                 "n": len(win),
                 "auto_lo": round(thr[lin].min(), 2) if len(lin) else np.nan,
                 "auto_hi": round(thr[lin].max(), 2) if len(lin) else np.nan,
                 "auto_k_rot": (
-                    round(np.polyfit(tip[lin], f[lin], 1)[0] * D_O**2
-                          * np.pi / 180.0 / 1000, 3) if len(lin) else np.nan
+                      round(np.polyfit(tip[lin], f[lin], 1)[0] / k_linear_factor, 3)
+                      if len(lin)
+                      else np.nan
                 ),
             }
         )
@@ -486,7 +514,7 @@ def plot_ramp_grid(d, segs, tab, out: Path) -> None:
             a.plot(th[sg["lin"]] - sg["th_ref"], f[sg["lin"]], lw=2.0,
                    color="tab:red", alpha=0.7, label="auto straight run")
         xs = np.linspace(*THETA_WINDOW, 10)
-        a.plot(xs, sg["k_tip"] * D_O * np.radians(xs + sg["th_ref"]) + sg["b"], "k--",
+        a.plot(xs, sg["k_tip"] * theta_deg_to_tip_mm(xs + sg["th_ref"]) + sg["b"], "k--",
                lw=1.0)
         a.set_title(f"cycle {sg['cycle']}  |  $k_{{rot}}$="
                     f"{row['k_rot_Nm_deg']:.2f} N\u00b7m/deg, "
@@ -522,8 +550,8 @@ def _fit_line(p, lin, k_tip, b, tip):
     """Map the force-displacement fit of one cycle into panel `p`."""
     xs = np.linspace(tip[lin].min(), tip[lin].max(), 10)
     yf = k_tip * xs + b
-    return (xs if p == 0 else np.degrees(xs / D_O),
-            yf * (D_O / 1000.0 if p == 2 else 1.0))
+    return (xs if p == 0 else tip_mm_to_theta_deg(xs),
+            force_to_moment_nm(yf) if p == 2 else yf)
 
 
 def plot_cycles(d, segs, tab, out: Path) -> None:
@@ -649,6 +677,17 @@ def main() -> None:
     ax[2].plot(th, f, lw=0.4, color="0.8", zorder=1)
     for sg in segs:
         ax[2].plot(th[sg["win"]], f[sg["win"]], lw=2, zorder=2)
+        i0 = int(sg["ramp"][0])
+        ax[2].scatter(
+            [th[i0]],
+            [f[i0]],
+            s=36,
+            marker="o",
+            facecolor="white",
+            edgecolor="tab:red",
+            linewidth=1.2,
+            zorder=4,
+        )
     ax[2].set(xlabel=r"$\theta$ [deg]", ylabel="distraction force [N]",
               title=f"force vs angle  ($k_{{rot}}$ = {k_rot.mean():.2f} "
                     f"$\\pm$ {k_rot.std():.2f} N\u00b7m/deg)")
@@ -664,10 +703,36 @@ def main() -> None:
     fig2, bx = plt.subplots(3, 1, figsize=(14, 10))
     for a, (lo, hi) in zip(bx, [(0, 340), (25, 40)]):
         a.plot(force["t_s"], force["force"], lw=0.8, color="tab:blue")
+        start_idx = np.array([int(sg["ramp"][0]) for sg in segs], dtype=int)
+        t0 = d["t_sync"].to_numpy()[start_idx]
+        f0 = f[start_idx]
+        th0 = th[start_idx]
+        a.scatter(
+            t0,
+            f0,
+            s=34,
+            marker="o",
+            facecolor="white",
+            edgecolor="tab:red",
+            linewidth=1.1,
+            zorder=4,
+            label="ramp start",
+        )
         a.set(xlabel="time [s]", ylabel="distraction force [N]", xlim=(lo, hi))
         a2 = a.twinx()
         a2.plot(d["t_sync"], th, lw=0.9, color="tab:orange")
+        a2.scatter(
+            t0,
+            th0,
+            s=28,
+            marker="D",
+            facecolor="white",
+            edgecolor="tab:red",
+            linewidth=0.9,
+            zorder=4,
+        )
         a2.set_ylabel(r"$\theta$ [deg]", color="tab:orange")
+        a.legend(loc="upper right", fontsize=8)
         a.grid(alpha=0.3)
     bx[0].set_title(f"{TEST_NAME}  -  sync check (lag {lag:+.2f} s)")
     bx[2].plot(scores[:, 0], scores[:, 1], lw=1)

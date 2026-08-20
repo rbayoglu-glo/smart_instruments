@@ -1,0 +1,65 @@
+file_name,intervention,cycle,valid,reason,k_linear_nm_per_deg,r2,fit_span_deg,fit_selection_mode
+2 - Intact Holding Longer,"intact, but holding",1,False,no_valid_linear_window,,,,
+2 - Intact Holding Longer,"intact, but holding",2,False,no_valid_linear_window,,,,
+2 - Intact Holding Longer,"intact, but holding",3,False,no_valid_linear_window,,,,
+2 - Intact Holding Longer,"intact, but holding",4,True,ok,1.483929254189911,0.9088118387321911,1.1148523839246642,fallback_initial_window
+2 - Intact Holding Longer,"intact, but holding",5,True,ok,1.696918240286086,0.950793490384742,0.9635657206518349,fallback_initial_window
+2 - Intact Holding Longer,"intact, but holding",6,True,ok,0.965030347041128,0.9225317310938762,1.068504191613418,fallback_initial_window
+2 - Intact Holding Longer,"intact, but holding",7,True,ok,4.32035355726914,0.8412256191868086,1.1021675106559927,fallback_initial_window
+2 - Intact Holding Longer,"intact, but holding",8,False,too_few_points_after_toe_cut,,,,
+2 - Intact Holding Longer,"intact, but holding",9,True,ok,2.5919352653943606,0.9485678085482204,0.8810116835802537,fallback_initial_window
+3 - PUBF Left,"PUBF, left",1,True,ok,0.7156731547285667,0.9672039850738994,1.908699496945084,fallback_initial_window
+3 - PUBF Left,"PUBF, left",2,False,no_valid_linear_window,,,,
+3 - PUBF Left,"PUBF, left",3,True,ok,3.165533072532507,0.9825971482349751,0.8948325995974457,strict_long_window
+3 - PUBF Left,"PUBF, left",4,True,ok,1.6379054694919113,0.9598434032651432,1.0310596861356314,fallback_initial_window
+3 - PUBF Left,"PUBF, left",5,True,ok,1.2250259519562503,0.9474825533441852,0.8730765348141342,fallback_best_r2
+3 - PUBF Left,"PUBF, left",6,True,ok,1.5704150939709431,0.9778189264925942,1.0077557835814648,strict_initial_window
+3 - PUBF Left,"PUBF, left",7,False,no_valid_linear_window,,,,
+3 - PUBF Left,"PUBF, left",8,False,no_valid_linear_window,,,,
+3 - PUBF Left,"PUBF, left",9,True,ok,2.1434856916586105,0.9046654245693222,1.0659487473807048,fallback_initial_window
+4 - FUF Left,"FUF, left",1,True,ok,2.4135872580068383,0.9721856151259587,1.850304326691432,strict_initial_window
+4 - FUF Left,"FUF, left",2,True,ok,2.9635054216481267,0.9829791858990784,1.3602259310251654,strict_initial_window
+4 - FUF Left,"FUF, left",3,True,ok,1.2219849977953603,0.9756465357027072,1.2267497167369092,strict_initial_window
+4 - FUF Left,"FUF, left",4,True,ok,1.0413409413622816,0.9531931177915571,1.7192014643205447,fallback_initial_window
+4 - FUF Left,"FUF, left",5,True,ok,1.1252971234649656,0.8383940450150422,0.9669586734746,fallback_initial_window
+4 - FUF Left,"FUF, left",7,True,ok,1.1941005739630972,0.9456251599448854,1.7258038298063298,fallback_initial_window
+4 - FUF Left,"FUF, left",8,True,ok,2.8437335994583797,0.9753056515682932,1.2761795277457255,strict_initial_window
+4 - FUF Left,"FUF, left",9,False,no_valid_linear_window,,,,
+4 - FUF Left,"FUF, left",10,True,ok,5.8228269137628805,0.9547234810453269,0.8757894432142481,fallback_initial_window
+5 - FBF,FBF,1,True,ok,2.450664899590001,0.9735594368574971,1.8350996876767027,strict_initial_window
+5 - FBF,FBF,2,True,ok,2.4811991193228256,0.9875430965551576,2.12927000901053,strict_initial_window
+5 - FBF,FBF,3,True,ok,1.8984935479790652,0.9710292762525152,2.704629901406342,strict_initial_window
+5 - FBF,FBF,4,True,ok,1.0498231207240507,0.8108844969469278,0.9908272070985273,fallback_initial_window
+5 - FBF,FBF,5,True,ok,1.2120697815869694,0.9709735438678766,1.7026796012802785,strict_initial_window
+5 - FBF,FBF,6,True,ok,0.9385432300564746,0.9630250988110427,1.5839530106572237,fallback_initial_window
+5 - FBF,FBF,7,False,no_valid_linear_window,,,,
+5 - FBF,FBF,8,True,ok,2.8507236228736037,0.9635197315853703,1.3010213921608969,fallback_initial_window
+5 - FBF,FBF,9,True,ok,1.9943796519290258,0.9748516750602342,1.4319272034387798,strict_initial_window
+5 - FBF,FBF,10,True,ok,2.4457126358425962,0.9827994267126625,1.9271081146154563,strict_initial_window
+6 - Posterior Release,Posterior Release,1,True,ok,2.550958536303654,0.9746114400481605,2.2932691018909646,strict_initial_window
+6 - Posterior Release,Posterior Release,2,True,ok,2.068053558369286,0.976150142536461,3.236873815702786,strict_initial_window
+6 - Posterior Release,Posterior Release,3,True,ok,2.2180932686637873,0.9924273896774328,2.7988746027288767,strict_initial_window
+6 - Posterior Release,Posterior Release,4,True,ok,2.4573019880168783,0.9720434269023731,0.9409441945443822,strict_initial_window
+6 - Posterior Release,Posterior Release,6,True,ok,0.9831994353514705,0.9512138923372786,1.5732524115495732,fallback_initial_window
+6 - Posterior Release,Posterior Release,7,False,no_valid_linear_window,,,,
+6 - Posterior Release,Posterior Release,8,False,too_few_points_after_toe_cut,,,,
+6 - Posterior Release,Posterior Release,9,True,ok,2.323709930982122,0.9874603066562664,3.317292181233532,strict_initial_window
+6 - Posterior Release,Posterior Release,10,True,ok,2.082173844601006,0.9611786316192975,0.8775592927422751,fallback_initial_window
+6 - Posterior Release,Posterior Release,11,True,ok,2.496127861874974,0.9598180807966743,1.1349806241427687,fallback_best_r2
+6 - Posterior Release,Posterior Release,12,True,ok,2.569427913810172,0.9720477417274197,1.2897645969468685,strict_long_window
+7 - SPO,SPO,1,True,ok,2.331988856922357,0.9873706460917373,3.5119280250605334,strict_initial_window
+7 - SPO,SPO,2,True,ok,2.8057324792363403,0.9949612530493297,3.322036373312432,strict_initial_window
+7 - SPO,SPO,3,True,ok,2.4959562095067906,0.9726481119460785,3.6949336824288164,strict_initial_window
+7 - SPO,SPO,4,True,ok,0.8116167192661421,0.9708022121217049,1.6459164952045633,strict_long_window
+7 - SPO,SPO,5,False,no_valid_linear_window,,,,
+7 - SPO,SPO,6,False,too_few_points_after_toe_cut,,,,
+7 - SPO,SPO,7,False,too_few_points_after_toe_cut,,,,
+7 - SPO,SPO,8,False,too_few_points_after_toe_cut,,,,
+7 - SPO,SPO,9,False,too_few_points_after_toe_cut,,,,
+7 - SPO,SPO,10,True,ok,0.9479753986819904,0.9707125481997456,2.1439696279235747,strict_initial_window
+7 - SPO,SPO,11,False,too_few_points_after_toe_cut,,,,
+7 - SPO,SPO,12,False,too_few_points_after_toe_cut,,,,
+7 - SPO,SPO,13,False,too_few_points_after_toe_cut,,,,
+7 - SPO,SPO,14,True,ok,5.110018102760272,0.9702620363955741,0.8929530581008711,strict_initial_window
+7 - SPO,SPO,15,True,ok,1.021086667368874,0.972587689477402,2.816898208508139,strict_initial_window
+7 - SPO,SPO,16,True,ok,1.383516974873599,0.9711822069059035,2.8212315862111383,strict_initial_window

@@ -1,0 +1,7 @@
+intervention,dtheta_too_small,geometry_gate,geometry_gate+monotonicity_gate,included,mhigh_not_reached_on_final_climb,monotonicity_gate,n_cycles,n_excluded
+"intact, but holding",1,1,0,3,3,1,9,6
+"PUBF, left",1,0,0,4,4,0,9,5
+"FUF, left",2,0,0,7,0,0,9,2
+FBF,0,1,0,8,1,0,10,2
+Posterior Release,2,0,1,7,1,0,11,4
+SPO,0,0,0,6,9,1,16,10

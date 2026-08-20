@@ -85,7 +85,7 @@ def analyze_one(file_name: str, intervention: str) -> tuple[pd.DataFrame, dict]:
         }
 
     # k_rot [N.m/deg] -> k_linear [N/mm]
-    factor = 1000.0 / (ls.D_O**2 * np.pi / 180.0)
+    factor = ls.k_rot_to_k_linear_factor()
     cyc = cyc.copy()
     cyc["k_linear_N_mm"] = cyc["k_rot_Nm_deg"] * factor
     cyc["quality_ok"] = (cyc["R2"] >= QUALITY_R2_MIN) & (cyc["n"] >= QUALITY_MIN_POINTS)

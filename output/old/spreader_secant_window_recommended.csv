@@ -1,0 +1,7 @@
+M_low_Nm,M_high_Nm,window,rank_corr_vs_baseline_0to4,top_ranked_intervention,mean_valid_cycles,window_width_Nm
+0.0,3.5,0.0-3.5,1.0,"intact, but holding",0.8188762626262626,3.5
+0.0,4.0,0.0-4.0,1.0,"intact, but holding",0.7818392255892256,4.0
+0.5,4.0,0.5-4.0,1.0,"intact, but holding",0.7818392255892256,3.5
+0.5,3.5,0.5-3.5,0.942857142857143,"intact, but holding",0.8188762626262626,3.0
+0.0,2.0,0.0-2.0,0.8857142857142858,"intact, but holding",0.9015151515151516,2.0
+0.0,3.0,0.0-3.0,0.8857142857142858,"PUBF, left",0.8559132996632997,3.0

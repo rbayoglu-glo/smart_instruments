@@ -1,0 +1,7 @@
+file_name,intervention,n_cycles,n_valid_secant,n_pass_auto,n_valid_auto,k_sec_med_auto_Nm_per_deg,k_sec_q25_auto_Nm_per_deg,k_sec_q75_auto_Nm_per_deg,gate_fail_geom,gate_fail_mono,rank_k_sec_auto
+2 - Intact Holding Longer,"intact, but holding",9,5,6,3,3.4916866134858777,2.651219824544207,5.901289696511251,1,2,1.0
+3 - PUBF Left,"PUBF, left",9,4,9,4,2.707269262167587,2.146506387197477,3.0363608724345372,0,0,2.0
+6 - Posterior Release,Posterior Release,11,8,7,7,1.8965595928997447,1.7407211886068852,2.131549308639186,3,4,3.0
+5 - FBF,FBF,10,9,8,8,1.7330650897063213,1.390226470366902,2.1844593016526592,1,1,4.0
+7 - SPO,SPO,16,7,9,6,1.516590871388457,1.4657172540114392,1.7361925878905273,0,7,5.0
+4 - FUF Left,"FUF, left",9,7,7,7,1.4384059097247566,1.3862337930049147,1.7273479309092064,1,1,6.0

@@ -13,7 +13,7 @@ OUTPUT_DIR = Path(r"C:\Projects\Smart_Instruments\Lamina_Spreader_Lab\Data_analy
 TEST_LABEL = "L231147 L5-S1"
 TARGET_MOMENT_NM = 7.5
 AVERAGE_CURVE_POINTS = 500
-SECANT_MOMENT_LOW_NM = -5.0
+SECANT_MOMENT_LOW_NM = 1.0
 SECANT_MOMENT_HIGH_NM = 5.0
 SECANT_CURVE_MIN_ABS_M_NM = 0.5
 
@@ -438,6 +438,10 @@ def sanitize_filename(name: str) -> str:
 	return re.sub(r"[^A-Za-z0-9_-]+", "_", name).strip("_")
 
 
+def secant_window_label() -> str:
+	return f"[{SECANT_MOMENT_LOW_NM:.1f},{SECANT_MOMENT_HIGH_NM:.1f}]"
+
+
 def plot_intervention(
 	intervention: str,
 	motion_results: dict[str, dict[str, np.ndarray | float]],
@@ -451,49 +455,11 @@ def plot_intervention(
 		moment = result["moment_cycle_centered"]
 		angle_avg = result["angle_avg_centered"]
 		moment_avg = result["moment_avg_centered"]
-		theta_target = result["theta_at_target_moment_deg"]
-		target_moment_nm = result["target_moment_nm"]
-		secant_k_pm5 = result["secant_k_pm5"]
-		theta_m_neg5 = result["theta_m_neg5"]
-		theta_m_pos5 = result["theta_m_pos5"]
-		angle_fit_points = result["angle_fit_points"]
-		moment_fit_points = result["moment_fit_points"]
-		slope = result["k_signed"]
-		intercept = result["intercept_nm"]
-		r2 = result["r2"]
 		poly3_coeff = result["poly3_coeff"]
-		poly3_r2 = result["poly3_r2"]
 		axis_label = MOTION_CONFIG[motion_name]["axis_label"]
-		fit_angle_min_deg = result["fit_angle_min_deg"]
-		fit_angle_max_deg = result["fit_angle_max_deg"]
 
-		ax.plot(moment, angle, marker="o", markersize=1.8, linewidth=1.0, alpha=0.4, label="Measured (3rd cycle)")
-		ax.plot(moment_avg, angle_avg, color="red", linewidth=2.2, label="Avg(load/unload), centered")
-		ax.scatter(moment_fit_points, angle_fit_points, s=20, color="gold", edgecolor="black", linewidth=0.3, label="Fit points")
-		if np.isfinite(theta_target):
-			ax.scatter(
-				[target_moment_nm],
-				[theta_target],
-				s=36,
-				marker="D",
-				color="magenta",
-				edgecolor="black",
-				linewidth=0.3,
-				label=f"theta@{target_moment_nm:.1f}Nm",
-			)
-
-		if np.isfinite(theta_m_neg5) and np.isfinite(theta_m_pos5):
-			ax.plot(
-				[SECANT_MOMENT_LOW_NM, SECANT_MOMENT_HIGH_NM],
-				[theta_m_neg5, theta_m_pos5],
-				color="orange",
-				linewidth=1.8,
-				label="Secant [-5,+5]",
-			)
-
-		angle_fit = np.linspace(float(np.min(angle_fit_points)), float(np.max(angle_fit_points)), 100)
-		moment_fit = slope * angle_fit + intercept
-		ax.plot(moment_fit, angle_fit, "k--", linewidth=2.0, label="Linear fit")
+		ax.plot(angle, moment, marker="o", markersize=1.8, linewidth=1.0, alpha=0.4, label="Measured (3rd cycle)")
+		ax.plot(angle_avg, moment_avg, color="red", linewidth=2.2, label="Avg(load/unload), centered")
 
 		theta_poly = np.linspace(float(np.min(angle_avg)), float(np.max(angle_avg)), 300)
 		moment_poly = (
@@ -501,45 +467,25 @@ def plot_intervention(
 			+ poly3_coeff[1] * theta_poly**2
 			+ poly3_coeff[2] * theta_poly**3
 		)
-		ax.plot(moment_poly, theta_poly, color="tab:green", linestyle="-.", linewidth=1.8, label="3rd-order poly fit (no C0)")
+		ax.plot(theta_poly, moment_poly, color="tab:green", linestyle="-.", linewidth=1.8, label="3rd-order poly fit (no C0)")
 
-		ax.set_xlabel(axis_label, fontsize=11)
-		ax.set_ylabel("Angle (deg)", fontsize=11)
-		ax.set_title(f"{motion_name}\n|k|={result['k_abs']:.3f} Nm/deg", fontsize=11)
+		ax.set_xlabel("Angle (deg)", fontsize=11)
+		ax.set_ylabel(axis_label, fontsize=11)
+		ax.set_title(motion_name, fontsize=11)
 		ax.grid(True, linestyle="--", alpha=0.6)
 		ax.axhline(0, color="k", linewidth=0.8)
 		ax.axvline(0, color="k", linewidth=0.8)
 		ax.legend(loc="lower right", fontsize=8)
 
-		theta_text = (
-			f"theta@{target_moment_nm:.1f}Nm = {theta_target:.3f} deg"
-			if np.isfinite(theta_target)
-			else f"theta@{target_moment_nm:.1f}Nm = N/A"
-		)
-		secant_text = (
-			f"k_sec[-5,+5] = {secant_k_pm5:.3f} Nm/deg"
-			if np.isfinite(secant_k_pm5)
-			else "k_sec[-5,+5] = N/A"
-		)
-
-		fit_text = (
-			f"M = k*theta + b\n"
-			f"k = {slope:.3f} Nm/deg\n"
-			f"b = {intercept:.3f} Nm\n"
-			f"R^2 = {r2:.3f}\n"
-			f"Avg(load/unload), centered @ (0,0)\n"
-			f"Fit window: {fit_angle_min_deg:.1f}-{fit_angle_max_deg:.1f} deg\n"
-			f"{theta_text}\n"
-			f"{secant_text}\n"
-			f"M = C1*theta + C2*theta^2 + C3*theta^3\n"
-			f"C1={poly3_coeff[0]:.2e}, C2={poly3_coeff[1]:.2e}\n"
-			f"C3={poly3_coeff[2]:.2e}\n"
-			f"Poly3 R^2 = {poly3_r2:.3f}"
+		coeff_text = (
+			f"C1={poly3_coeff[0]:.3f}\n"
+			f"C2={poly3_coeff[1]:.3f}\n"
+			f"C3={poly3_coeff[2]:.3f}"
 		)
 		ax.text(
 			0.03,
 			0.97,
-			fit_text,
+			coeff_text,
 			transform=ax.transAxes,
 			fontsize=8,
 			verticalalignment="top",
@@ -550,62 +496,81 @@ def plot_intervention(
 	plt.tight_layout()
 	output_name = f"{sanitize_filename(intervention)}_stiffness.png"
 	fig.savefig(output_dir / output_name, dpi=300, bbox_inches="tight")
-	plt.show()
+	plt.close(fig)
+
+
+def plot_coefficient_illustration(
+	intervention: str,
+	fe_result: dict[str, np.ndarray | float],
+	output_dir: Path,
+) -> None:
+	"""Create one FE illustration that explains C1/C2/C3 contributions."""
+	angle = np.asarray(fe_result["angle_cycle_centered"], dtype=float)
+	moment = np.asarray(fe_result["moment_cycle_centered"], dtype=float)
+	angle_avg = np.asarray(fe_result["angle_avg_centered"], dtype=float)
+	moment_avg = np.asarray(fe_result["moment_avg_centered"], dtype=float)
+	poly3_coeff = np.asarray(fe_result["poly3_coeff"], dtype=float)
+
+	if angle_avg.size < 3:
+		return
+
+	theta_poly = np.linspace(float(np.min(angle_avg)), float(np.max(angle_avg)), 400)
+	m1 = poly3_coeff[0] * theta_poly
+	m2 = poly3_coeff[1] * theta_poly**2
+	m3 = poly3_coeff[2] * theta_poly**3
+	m_total = m1 + m2 + m3
+
+	fig, axes = plt.subplots(1, 2, figsize=(13.5, 5.2), dpi=220)
+
+	# Left: same style as FE angle-vs-Mx plot (Mx predicted from angle).
+	ax0 = axes[0]
+	ax0.plot(angle, moment, marker="o", markersize=1.8, linewidth=1.0, alpha=0.35, label="Measured (3rd cycle)")
+	ax0.plot(angle_avg, moment_avg, color="red", linewidth=2.2, label="Avg(load/unload), centered")
+	ax0.plot(theta_poly, m_total, color="tab:green", linestyle="-.", linewidth=1.9, label="3rd-order poly fit")
+	ax0.set_xlabel("Angle (deg)")
+	ax0.set_ylabel("Mx (Nm)")
+	ax0.set_title(f"Flexion/Extension | {intervention}")
+	ax0.grid(True, linestyle="--", alpha=0.6)
+	ax0.axhline(0, color="k", linewidth=0.8)
+	ax0.axvline(0, color="k", linewidth=0.8)
+	ax0.legend(loc="lower right", fontsize=8)
+
+	# Right: illustrate each polynomial contribution with angle on x and Mx on y.
+	ax1 = axes[1]
+	ax1.plot(theta_poly, m1, color="#1f77b4", linewidth=1.8, label="C1*theta (linear baseline)")
+	ax1.plot(theta_poly, m2, color="#ff7f0e", linewidth=1.8, label="C2*theta^2 (curvature)")
+	ax1.plot(theta_poly, m3, color="#9467bd", linewidth=1.8, label="C3*theta^3 (high-angle nonlinearity)")
+	ax1.plot(theta_poly, m_total, color="tab:green", linestyle="-.", linewidth=2.0, label="C1*theta + C2*theta^2 + C3*theta^3")
+	ax1.set_xlabel("Angle (deg)")
+	ax1.set_ylabel("Mx contribution (Nm)")
+	ax1.set_title("How C1, C2, C3 shape Mx(theta)")
+	ax1.grid(True, linestyle="--", alpha=0.6)
+	ax1.axhline(0, color="k", linewidth=0.8)
+	ax1.axvline(0, color="k", linewidth=0.8)
+	ax1.legend(loc="lower right", fontsize=8)
+
+	coeff_text = (
+		f"C1={poly3_coeff[0]:.3f}\n"
+		f"C2={poly3_coeff[1]:.3f}\n"
+		f"C3={poly3_coeff[2]:.3f}"
+	)
+	ax1.text(
+		0.03,
+		0.97,
+		coeff_text,
+		transform=ax1.transAxes,
+		fontsize=8,
+		verticalalignment="top",
+		bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.85},
+	)
+
+	fig.suptitle("Coefficient Illustration on FE Angle-vs-Mx Plot", fontsize=13)
+	fig.tight_layout()
+	fig.savefig(output_dir / "fe_coefficient_illustration.png", bbox_inches="tight")
+	plt.close(fig)
 
 
 def print_rankings(stiffness_df: pd.DataFrame) -> None:
-	print("\n" + "=" * 72)
-	print("Stiffness Ranking by Motion (higher = stiffer, using |slope| in Nm/deg)")
-	print("=" * 72)
-
-	for motion_name in MOTION_CONFIG.keys():
-		ranked = (
-			stiffness_df[stiffness_df["Motion"] == motion_name]
-			.sort_values("Stiffness_Nm_per_deg", ascending=False)
-			.reset_index(drop=True)
-		)
-
-		print(f"\n{motion_name}:")
-		for idx, row in ranked.iterrows():
-			print(f"  {idx + 1:>2}. {row['Intervention']:<18} k = {row['Stiffness_Nm_per_deg']:.4f} Nm/deg")
-
-	overall = (
-		stiffness_df.groupby("Intervention", as_index=False)["Stiffness_Nm_per_deg"]
-		.mean()
-		.rename(columns={"Stiffness_Nm_per_deg": "Overall_Stiffness_Nm_per_deg"})
-		.sort_values("Overall_Stiffness_Nm_per_deg", ascending=False)
-		.reset_index(drop=True)
-	)
-
-	print("\n" + "=" * 72)
-	print("Overall Ranking (mean stiffness across FE, LB, AR)")
-	print("=" * 72)
-	for idx, row in overall.iterrows():
-		print(
-			f"  {idx + 1:>2}. {row['Intervention']:<18} "
-			f"k_mean = {row['Overall_Stiffness_Nm_per_deg']:.4f} Nm/deg"
-		)
-
-	print("\n" + "=" * 72)
-	print(f"Angle at {TARGET_MOMENT_NM:.1f} Nm on averaged centered curve")
-	print("(Lower angle = stiffer, Higher angle = lower stiffness)")
-	print("=" * 72)
-
-	for motion_name in MOTION_CONFIG.keys():
-		ranked_theta = (
-			stiffness_df[stiffness_df["Motion"] == motion_name]
-			.sort_values("Theta_at_target_moment_deg", ascending=True, na_position="last")
-			.reset_index(drop=True)
-		)
-
-		print(f"\n{motion_name}:")
-		for idx, row in ranked_theta.iterrows():
-			theta_val = row["Theta_at_target_moment_deg"]
-			if pd.isna(theta_val):
-				print(f"  {idx + 1:>2}. {row['Intervention']:<18} theta@{TARGET_MOMENT_NM:.1f}Nm = N/A")
-			else:
-				print(f"  {idx + 1:>2}. {row['Intervention']:<18} theta@{TARGET_MOMENT_NM:.1f}Nm = {theta_val:.4f} deg")
-
 	print("\n" + "=" * 72)
 	print(f"Secant stiffness between {SECANT_MOMENT_LOW_NM:.1f} and {SECANT_MOMENT_HIGH_NM:.1f} Nm")
 	print("(Higher secant stiffness = stiffer)")
@@ -614,17 +579,34 @@ def print_rankings(stiffness_df: pd.DataFrame) -> None:
 	for motion_name in MOTION_CONFIG.keys():
 		ranked_secant = (
 			stiffness_df[stiffness_df["Motion"] == motion_name]
-			.sort_values("SecantStiffness_pm5_Nm_per_deg", ascending=False, na_position="last")
+			.sort_values("SecantStiffness_Nm_per_deg", ascending=False, na_position="last")
 			.reset_index(drop=True)
 		)
 
 		print(f"\n{motion_name}:")
 		for idx, row in ranked_secant.iterrows():
-			k_sec = row["SecantStiffness_pm5_Nm_per_deg"]
+			k_sec = row["SecantStiffness_Nm_per_deg"]
 			if pd.isna(k_sec):
-				print(f"  {idx + 1:>2}. {row['Intervention']:<18} k_sec[-5,+5] = N/A")
+				print(f"  {idx + 1:>2}. {row['Intervention']:<18} k_sec{secant_window_label()} = N/A")
 			else:
-				print(f"  {idx + 1:>2}. {row['Intervention']:<18} k_sec[-5,+5] = {k_sec:.4f} Nm/deg")
+				print(f"  {idx + 1:>2}. {row['Intervention']:<18} k_sec{secant_window_label()} = {k_sec:.4f} Nm/deg")
+
+	overall_secant = (
+		stiffness_df.groupby("Intervention", as_index=False)["SecantStiffness_Nm_per_deg"]
+		.mean()
+		.rename(columns={"SecantStiffness_Nm_per_deg": "Overall_SecantStiffness_Nm_per_deg"})
+		.sort_values("Overall_SecantStiffness_Nm_per_deg", ascending=False)
+		.reset_index(drop=True)
+	)
+
+	print("\n" + "=" * 72)
+	print("Overall Ranking (mean secant stiffness across FE, LB, AR)")
+	print("=" * 72)
+	for idx, row in overall_secant.iterrows():
+		print(
+			f"  {idx + 1:>2}. {row['Intervention']:<18} "
+			f"k_sec_mean = {row['Overall_SecantStiffness_Nm_per_deg']:.4f} Nm/deg"
+		)
 
 
 def main() -> None:
@@ -635,6 +617,8 @@ def main() -> None:
 	interventions = build_intervention_map(book_numbers)
 
 	stiffness_rows: list[dict[str, float | str]] = []
+	illustration_done = False
+	fallback_fe: tuple[str, dict[str, np.ndarray | float]] | None = None
 
 	for intervention, books in interventions.items():
 		motion_results: dict[str, dict[str, np.ndarray | float]] = {}
@@ -665,7 +649,7 @@ def main() -> None:
 				moment_avg_centered,
 				TARGET_MOMENT_NM,
 			)
-			secant_k_pm5, theta_m_neg5, theta_m_pos5, m_sec_curve, k_sec_curve = compute_secant_stiffness_metrics(
+			secant_k, theta_m_low, theta_m_high, m_sec_curve, k_sec_curve = compute_secant_stiffness_metrics(
 				angle_avg_centered,
 				moment_avg_centered,
 				SECANT_MOMENT_LOW_NM,
@@ -688,9 +672,9 @@ def main() -> None:
 				"moment_fit_points": moment_fit_points,
 				"theta_at_target_moment_deg": theta_target_deg,
 				"target_moment_nm": TARGET_MOMENT_NM,
-				"secant_k_pm5": secant_k_pm5,
-				"theta_m_neg5": theta_m_neg5,
-				"theta_m_pos5": theta_m_pos5,
+				"secant_k": secant_k,
+				"theta_m_low": theta_m_low,
+				"theta_m_high": theta_m_high,
 				"m_sec_curve": m_sec_curve,
 				"k_sec_curve": k_sec_curve,
 				"fit_angle_min_deg": fit_angle_min_deg,
@@ -711,13 +695,23 @@ def main() -> None:
 					"Stiffness_Nm_per_deg": k_abs,
 					"Signed_Slope_Nm_per_deg": k_signed,
 					"Theta_at_target_moment_deg": theta_target_deg,
-					"SecantStiffness_pm5_Nm_per_deg": secant_k_pm5,
+					"SecantStiffness_Nm_per_deg": secant_k,
 					"Intercept_Nm": intercept_nm,
 					"R2": r2,
 				}
 			)
 
 		plot_intervention(intervention, motion_results, OUTPUT_DIR)
+
+		if "Flexion/Extension" in motion_results:
+			if fallback_fe is None:
+				fallback_fe = (intervention, motion_results["Flexion/Extension"])
+			if (not illustration_done) and (intervention.lower() == "intact"):
+				plot_coefficient_illustration(intervention, motion_results["Flexion/Extension"], OUTPUT_DIR)
+				illustration_done = True
+
+	if (not illustration_done) and (fallback_fe is not None):
+		plot_coefficient_illustration(fallback_fe[0], fallback_fe[1], OUTPUT_DIR)
 
 	stiffness_df = pd.DataFrame(stiffness_rows)
 	print_rankings(stiffness_df)
