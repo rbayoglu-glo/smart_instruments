@@ -12,7 +12,7 @@ PPTX_PATH = OUT / f"mts_testing_data_slides_{date.today().isoformat()}.pptx"
 
 INTERVENTION_FIGS = [
     "Intact_stiffness.png",
-    "PUBF_Left_stiffness.png",
+    "PUF_Left_stiffness.png",
     "FUF_Left_stiffness.png",
     "FBF_stiffness.png",
     "Posterior_Release_stiffness.png",

@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+import re
 
 import pandas as pd
 from pptx import Presentation
@@ -16,13 +17,36 @@ FIG_RAMP_STARTS = OUT / "spreader_ramp_start_force_across_cycles_interventions.p
 FIG_FORCE_DISP = OUT / "cycles_force_vs_tip.png"
 FIG_MOMENT_THETA = OUT / "cycles_moment_vs_theta.png"
 
-CSV_FLAGS = OUT / "sync_check_transition_flags_preloadfree_plot.csv"
+CSV_FLAGS = OUT / "sync_check_transition_flags.csv"
 CSV_SUMMARY_EXCL = OUT / "spreader_secant_summary_exclude_transition.csv"
 
 TITLE_FONT = Pt(32)
 SUBTITLE_FONT = Pt(18)
 BODY_FONT = Pt(20)
 MONO_FONT = Pt(12)
+
+
+def _clean_intervention(name: str) -> str:
+    txt = str(name).strip().replace("_", " ")
+    txt = re.sub(r"^\d+\s*-\s*", "", txt)
+    txt = " ".join(txt.split())
+    low = txt.lower()
+
+    if "intact" in low and "holding" in low:
+        return "Intact"
+    if low == "intact":
+        return "Intact"
+    if "pubf" in low or low.startswith("puf"):
+        return "PUF"
+    if low.startswith("fuf"):
+        return "FUF"
+
+    return txt
+
+
+def _to_bool_series(series: pd.Series) -> pd.Series:
+    s = series.astype(str).str.strip().str.lower()
+    return s.isin(["true", "1", "yes", "y"])
 
 
 def set_title(shape, text: str, size: Pt = TITLE_FONT) -> None:
@@ -71,16 +95,20 @@ def add_ineligible_summary_slide(prs: Presentation) -> None:
     if df.empty or ("transition_flag" not in df.columns):
         return
 
+    df["intervention_clean"] = df["intervention"].map(_clean_intervention)
+    ineligible = _to_bool_series(df["transition_flag"])
+
     grp = (
-        df.groupby("intervention", as_index=False)
+        df.assign(ineligible=ineligible).groupby("intervention_clean", as_index=False)
         .agg(
             n_cycles=("cycle", "count"),
-            n_ineligible=("transition_flag", "sum"),
+            n_ineligible=("ineligible", "sum"),
         )
-        .sort_values("intervention")
+        .sort_values("intervention_clean")
         .reset_index(drop=True)
     )
     grp["n_eligible"] = grp["n_cycles"] - grp["n_ineligible"]
+    total_ineligible = int(grp["n_ineligible"].sum())
 
     lines = [
         "Cycle eligibility summary (preload-free transition flags)",
@@ -90,13 +118,15 @@ def add_ineligible_summary_slide(prs: Presentation) -> None:
     ]
     for _, r in grp.iterrows():
         lines.append(
-            f"{str(r['intervention']):<26} {int(r['n_cycles']):>8}   {int(r['n_eligible']):>8}   {int(r['n_ineligible']):>10}"
+            f"{str(r['intervention_clean']):<26} {int(r['n_cycles']):>8}   {int(r['n_eligible']):>8}   {int(r['n_ineligible']):>10}"
         )
 
     lines += [
         "",
-        "In plots, transition/ineligible cycles are marked in red.",
+        "Rule: ineligible here only means transition_flag=True.",
     ]
+    if total_ineligible == 0:
+        lines.append("This run has no transition-flagged cycles, so ineligible=0 for all interventions.")
 
     s = prs.slides.add_slide(prs.slide_layouts[5])
     set_title(s.shapes.title, "Step 4: Mark Ineligible Cycles", size=Pt(26))
@@ -119,6 +149,7 @@ def add_spreader_ranking_slide(prs: Presentation) -> None:
     if df.empty:
         return
 
+    df["intervention_clean"] = df["intervention"].map(_clean_intervention)
     df = df.sort_values("rank_k_sec").reset_index(drop=True)
 
     lines = [
@@ -129,7 +160,7 @@ def add_spreader_ranking_slide(prs: Presentation) -> None:
     ]
     for _, r in df.iterrows():
         lines.append(
-            f"{int(r['rank_k_sec']):>4}  {str(r['intervention']):<24} {float(r['k_sec_med_Nm_per_deg']):>10.3f}            {int(r['n_valid'])}/{int(r['n_cycles'])}"
+            f"{int(r['rank_k_sec']):>4}  {str(r['intervention_clean']):<24} {float(r['k_sec_med_Nm_per_deg']):>10.3f}            {int(r['n_valid'])}/{int(r['n_cycles'])}"
         )
 
     s = prs.slides.add_slide(prs.slide_layouts[5])
@@ -167,12 +198,12 @@ def main() -> None:
     add_bullets(
         s,
         [
-            "1. Plot raw force vs time (all cycles)",
-            "2. Remove preload and re-plot force vs time",
-            "3. Detect and mark ramp starts",
-            "4. Mark ineligible cycles (transition-flag rules)",
-            "5. Compute stiffness on force vs displacement windows",
-            "6. Convert to moment vs theta and report stiffness ranking",
+            "1. Plot raw force/theta sync traces across interventions.",
+            "2. Apply filtering and preload/theta0 corrections.",
+            "3. Detect and mark ramp starts.",
+            "4. Mark transition-flagged cycles as ineligible.",
+            "5. Fit force-tip and moment-theta stiffness (some cycles can fail fit criteria).",
+            "6. Report rankings from valid fitted cycles.",
         ],
     )
 

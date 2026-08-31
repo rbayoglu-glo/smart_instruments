@@ -1,8 +1,10 @@
 from pathlib import Path
+import re
 
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from scipy.signal import butter, filtfilt, medfilt
 
 import analyze_interventions as ai
 import lamina_spreader as ls
@@ -29,6 +31,7 @@ THETA_ZERO_SNAP_WINDOW_SEC = 1.5
 THETA_ZERO_FORCE_FRACTION = 0.25
 THETA_ZERO_MAX_ABS_DEG = 0.35
 THETA_ZERO_SOURCE_MAX_ABS_DEG = 1.0
+SNAP_TO_THETA_ZERO_ALWAYS = True
 NON_NEUTRAL_WINDOW_SEC = 1.5
 NON_NEUTRAL_THETA_DEG = 2.0
 NON_NEUTRAL_MIN_FRACTION = 0.25
@@ -43,6 +46,44 @@ TRANSITION_EDGE_FORCE_RELAX = 1.08
 FORCE_REF_MOMENTS_NM = (0.5, 4.0)
 FORCE_REF_VALUES_N = tuple(float(ls.moment_to_force_n(m)) for m in FORCE_REF_MOMENTS_NM)
 SECANT_CYCLES_CSV = OUT_DIR / "spreader_secant_cycles_preloadcorr_rampref_fzero.csv"
+
+# Filtering settings reused from the filtered sync workflow.
+THETA_MEDIAN_KERNEL = 5
+THETA_LOWPASS_CUTOFF_HZ = 1.2
+FORCE_LOWPASS_CUTOFF_HZ = 1.5
+BUTTER_ORDER = 2
+THETA_DESPIKE_WINDOW = 15
+THETA_DESPIKE_Z = 3.5
+FORCE_DESPIKE_WINDOW = 11
+FORCE_DESPIKE_Z = 3.5
+
+# Pipeline controls for preload-free + ramp-start identification.
+RAMP_ID_USE_FILTERED_FORCE = True
+RAMP_ID_USE_FILTERED_THETA = True
+PRELOAD_REMOVE_USE_FILTERED_FORCE = True
+
+
+def _clean_intervention(name: str) -> str:
+    txt = str(name).strip().replace("_", " ")
+    txt = re.sub(r"^\d+\s*-\s*", "", txt)
+    txt = " ".join(txt.split())
+    low = txt.lower()
+    if "intact" in low and "holding" in low:
+        return "Intact"
+    if low == "intact":
+        return "Intact"
+    if "pubf" in low or low.startswith("puf"):
+        return "PUF"
+    if low.startswith("fuf"):
+        return "FUF"
+    return txt
+
+
+def _display_case_name(file_name: str, intervention: str) -> str:
+    m = re.match(r"^(\d+)\s*-\s*", str(file_name).strip())
+    if m:
+        return f"{m.group(1)} - {_clean_intervention(intervention)}"
+    return _clean_intervention(intervention)
 
 
 def require_flag_block(cyc: pd.DataFrame, min_block: int = TRANSITION_MIN_BLOCK) -> pd.Series:
@@ -83,6 +124,88 @@ def require_flag_block(cyc: pd.DataFrame, min_block: int = TRANSITION_MIN_BLOCK)
                 keep.loc[idx[block_start:block_end + 1]] = True
 
     return keep
+
+
+def _odd_kernel_size(k: int) -> int:
+    k = max(3, int(k))
+    return k if k % 2 == 1 else k + 1
+
+
+def _interpolate_nans(x: np.ndarray) -> np.ndarray:
+    s = pd.Series(np.asarray(x, dtype=float))
+    return s.interpolate(limit_direction="both").to_numpy(dtype=float)
+
+
+def _rolling_median_mad(x: np.ndarray, window: int) -> tuple[np.ndarray, np.ndarray]:
+    w = _odd_kernel_size(window)
+    s = pd.Series(np.asarray(x, dtype=float))
+    med = s.rolling(w, center=True, min_periods=1).median().to_numpy(dtype=float)
+    mad = (
+        (s - pd.Series(med))
+        .abs()
+        .rolling(w, center=True, min_periods=1)
+        .median()
+        .to_numpy(dtype=float)
+    )
+    return med, mad
+
+
+def despike_mad(x: np.ndarray, window: int, z: float) -> np.ndarray:
+    y = _interpolate_nans(np.asarray(x, dtype=float))
+    med, mad = _rolling_median_mad(y, window)
+    sigma = 1.4826 * mad
+    sigma = np.maximum(sigma, 1e-6)
+    resid = np.abs(y - med)
+    out = y.copy()
+    out[resid > float(z) * sigma] = med[resid > float(z) * sigma]
+    return out
+
+
+def butter_lowpass_filter(x: np.ndarray, fs_hz: float, cutoff_hz: float, order: int) -> np.ndarray:
+    x = np.asarray(x, dtype=float)
+    if x.size == 0:
+        return x.copy()
+
+    y = _interpolate_nans(x)
+
+    if not np.isfinite(fs_hz) or fs_hz <= 0:
+        return y
+
+    nyq = 0.5 * fs_hz
+    if not np.isfinite(nyq) or nyq <= 0:
+        return y
+
+    if cutoff_hz <= 0:
+        return y
+
+    wn = min(0.99, float(cutoff_hz / nyq))
+    if wn <= 0:
+        return y
+
+    if y.size < max(9, 3 * int(order) + 1):
+        return y
+
+    b, a = butter(int(order), wn, btype="low")
+    try:
+        yf = filtfilt(b, a, y)
+    except ValueError:
+        return y
+
+    yf[~np.isfinite(x)] = np.nan
+    return yf
+
+
+def filter_theta(theta: np.ndarray, fs_hz: float) -> np.ndarray:
+    k = _odd_kernel_size(THETA_MEDIAN_KERNEL)
+    th = np.asarray(theta, dtype=float)
+
+    filled = _interpolate_nans(th)
+    med = medfilt(filled, kernel_size=k)
+    med[~np.isfinite(th)] = np.nan
+    dsp = despike_mad(med, THETA_DESPIKE_WINDOW, THETA_DESPIKE_Z)
+    dsp[~np.isfinite(th)] = np.nan
+
+    return butter_lowpass_filter(dsp, fs_hz, THETA_LOWPASS_CUTOFF_HZ, BUTTER_ORDER)
 
 
 def expand_flag_edges(
@@ -185,7 +308,10 @@ def snap_start_to_theta_zero(
     if pk <= i0 + 2:
         return int(i0)
 
-    if not np.isfinite(th[i0]) or abs(float(th[i0])) > THETA_ZERO_SOURCE_MAX_ABS_DEG:
+    if not np.isfinite(th[i0]):
+        return int(i0)
+
+    if (not SNAP_TO_THETA_ZERO_ALWAYS) and abs(float(th[i0])) > THETA_ZERO_SOURCE_MAX_ABS_DEG:
         return int(i0)
 
     dt = float(np.nanmedian(np.diff(t))) if t.size >= 2 else np.nan
@@ -216,6 +342,8 @@ def snap_start_to_theta_zero(
         idx = early
 
     j = int(idx[int(np.argmin(np.abs(th[idx])))] )
+    if SNAP_TO_THETA_ZERO_ALWAYS:
+        return j
     if abs(float(th[j])) <= THETA_ZERO_MAX_ABS_DEG:
         return j
     return int(i0)
@@ -284,17 +412,42 @@ def load_synced_case(file_name: str) -> dict:
     d, _, fmax = ls.sync(kin, force, lag)
 
     t = d["t_sync"].to_numpy(float)
-    f = d["force"].to_numpy(float)
-    th = d["theta_dist"].to_numpy(float)
+    f_raw = d["force"].to_numpy(float)
+    if "theta_sm" in d.columns:
+        th_raw = d["theta_sm"].to_numpy(float)
+        theta_source = "theta_sm"
+    else:
+        # Fallback keeps the script robust if upstream schema changes.
+        th_raw = d["theta_dist"].to_numpy(float)
+        theta_source = "theta_dist"
+        print("warning: theta_sm not found; falling back to theta_dist")
 
-    runs = ls.segment_cycles(f, ls.CYCLE_THRESH * fmax)
+    if t.size >= 2:
+        dt = float(np.nanmedian(np.diff(t)))
+    else:
+        dt = np.nan
+    fs_hz = float(1.0 / dt) if np.isfinite(dt) and dt > 0 else np.nan
+
+    f_dsp = despike_mad(f_raw, FORCE_DESPIKE_WINDOW, FORCE_DESPIKE_Z)
+    f_dsp[~np.isfinite(f_raw)] = np.nan
+    f_filt = butter_lowpass_filter(f_dsp, fs_hz, FORCE_LOWPASS_CUTOFF_HZ, BUTTER_ORDER)
+    th_filt = filter_theta(th_raw, fs_hz)
+
+    f_id = f_filt if RAMP_ID_USE_FILTERED_FORCE else f_raw
+    th_id = th_filt if RAMP_ID_USE_FILTERED_THETA else th_raw
+
+    fmax_id = float(np.nanmax(f_id)) if np.any(np.isfinite(f_id)) else float(fmax)
+    if not np.isfinite(fmax_id) or fmax_id <= 0:
+        fmax_id = float(fmax)
+
+    runs = ls.segment_cycles(f_id, ls.CYCLE_THRESH * fmax_id)
     cands = []
     for s, e in runs:
-        rb = ls.ramp_bounds(f, s, e, fmax)
+        rb = ls.ramp_bounds(f_id, s, e, fmax_id)
         if rb is None:
             continue
         i0_force, _, pk = rb
-        i0 = snap_start_to_theta_zero(t, f, th, s, i0_force, pk)
+        i0 = snap_start_to_theta_zero(t, f_id, th_id, s, i0_force, pk)
         cands.append(
             {
                 "s": int(s),
@@ -302,13 +455,13 @@ def load_synced_case(file_name: str) -> dict:
                 "i0_force": int(i0_force),
                 "i0": int(i0),
                 "pk": int(pk),
-                "fpk": float(f[pk]),
+                "fpk": float(f_id[pk]),
                 "dur": int(e - s),
             }
         )
 
     cands = dedupe_peak_candidates(cands, t)
-    cands = filter_pseudoramps(cands, t, th)
+    cands = filter_pseudoramps(cands, t, th_id)
     cands = sorted(cands, key=lambda c: c["pk"])
 
     cycles = []
@@ -316,9 +469,10 @@ def load_synced_case(file_name: str) -> dict:
         i0_force = int(c["i0_force"])
         i0 = int(c["i0"])
         pk = int(c["pk"])
-        f0 = float(f[i0])
+        f0_raw = float(f_raw[i0])
+        f0_id = float(f_id[i0])
         th_pre_med, th_pre_frac, nn_force_flag, nn_window_flag, nn_flag = detect_non_neutral_start(
-            t, th, i0_force
+            t, th_id, i0_force
         )
         cycles.append(
             {
@@ -331,13 +485,17 @@ def load_synced_case(file_name: str) -> dict:
                 "t_start_s": float(t[i0]),
                 "t_peak_s": float(t[pk]),
                 "rise_s": float(t[pk] - t[i0]),
-                "F_start_raw_N": f0,
-                "F_peak_raw_N": float(f[pk]),
-                "F_peak_dyn_N": float(f[pk] - f0),
-                "theta_force_start_deg": float(th[i0_force]),
-                "theta_start_deg": float(th[i0]),
-                "theta_peak_deg": float(th[pk]),
-                "dtheta_deg": float(th[pk] - th[i0]),
+                "F_start_raw_N": f0_raw,
+                "F_peak_raw_N": float(f_raw[pk]),
+                "F_peak_dyn_N": float(f_raw[pk] - f0_raw),
+                "F_start_id_N": f0_id,
+                "F_peak_id_N": float(f_id[pk]),
+                "theta_force_start_deg": float(th_id[i0_force]),
+                "theta_start_deg": float(th_id[i0]),
+                "theta_peak_deg": float(th_id[pk]),
+                "dtheta_deg": float(th_id[pk] - th_id[i0]),
+                "theta_force_start_raw_deg": float(th_raw[i0_force]),
+                "theta_start_raw_deg": float(th_raw[i0]),
                 "theta_preramp_med_deg": th_pre_med,
                 "theta_preramp_open_frac": th_pre_frac,
                 "non_neutral_force_start_flag": bool(nn_force_flag),
@@ -348,14 +506,20 @@ def load_synced_case(file_name: str) -> dict:
         )
 
     starts = np.array([c["i0"] for c in cycles], dtype=int)
-    f_dyn = build_preloadfree_trace(f, cycles)
+    f_preload = f_filt if PRELOAD_REMOVE_USE_FILTERED_FORCE else f_raw
+    f_dyn = build_preloadfree_trace(f_preload, cycles)
 
     return {
         "lag": float(lag),
+        "fs_hz": fs_hz,
         "t": t,
-        "f": f,
+        "f": f_raw,
+        "f_filt": f_filt,
+        "f_id": f_id,
         "f_dyn": f_dyn,
-        "th": th,
+        "th": th_raw,
+        "th_filt": th_filt,
+        "theta_source": theta_source,
         "start_idx": starts,
         "cycles": cycles,
     }
@@ -560,25 +724,56 @@ def main() -> None:
 
     for i, ((file_name, intervention, case), ax) in enumerate(zip(case_data, axes)):
         t = case["t"]
+        f_id = case["f_id"]
         f_dyn = case["f_dyn"]
         th = case["th"]
         idx = case["start_idx"]
 
-        h_force, = ax.plot(t, f_dyn, lw=0.9, color="tab:blue", label="distraction force (no preload)")
-        ax.set_ylabel("dyn force [N]", color="tab:blue")
+        id_force_src_label = "filtered" if RAMP_ID_USE_FILTERED_FORCE else "raw"
+        force_src_label = "filtered" if PRELOAD_REMOVE_USE_FILTERED_FORCE else "raw"
+        theta_id_label = "filtered" if RAMP_ID_USE_FILTERED_THETA else "raw"
+
+        h_force_ctx, = ax.plot(
+            t,
+            f_id,
+            lw=0.9,
+            color="0.55",
+            alpha=0.9,
+            label=f"force for ramp ID ({id_force_src_label}, full trace)",
+        )
+
+        h_force, = ax.plot(
+            t,
+            f_dyn,
+            lw=1.1,
+            color="tab:blue",
+            label=f"distraction force (no preload, {force_src_label})",
+        )
+        ax.set_ylabel("force [N]", color="tab:blue")
         ax.set_ylim(-25.0, 125.0)
         ax.tick_params(axis="y", labelcolor="tab:blue")
 
         ax2 = ax.twinx()
-        h_theta, = ax2.plot(t, th, lw=0.9, color="tab:orange", label="theta")
+        h_theta, = ax2.plot(t, th, lw=0.9, color="tab:orange", label="theta (un-subtracted)")
         ax2.axhline(0.0, color="tab:orange", lw=1.0, ls=":", alpha=0.8)
         ax2.set_ylabel("theta [deg]", color="tab:orange")
-        ax2.set_ylim(-4.0, 10.0)
+        ax2.set_ylim(-4.0, 7.0)
         ax2.tick_params(axis="y", labelcolor="tab:orange")
 
         h_start_force = None
+        h_start_force_id = None
         h_start_theta = None
         if idx.size > 0:
+            h_start_force_id = ax.scatter(
+                t[idx],
+                f_id[idx],
+                s=24,
+                marker="x",
+                color="tab:red",
+                linewidths=1.0,
+                zorder=4,
+                label="ramp start on force-ID trace",
+            )
             h_start_force = ax.scatter(
                 t[idx],
                 f_dyn[idx],
@@ -588,7 +783,7 @@ def main() -> None:
                 edgecolor="tab:red",
                 linewidth=1.1,
                 zorder=4,
-                label="ramp start (dyn force)",
+                label="ramp start (force)",
             )
             h_start_theta = ax2.scatter(
                 t[idx],
@@ -599,7 +794,7 @@ def main() -> None:
                 edgecolor="tab:red",
                 linewidth=0.9,
                 zorder=4,
-                label="ramp start (theta raw)",
+                label=f"ramp start (theta shown un-subtracted, ID on {theta_id_label})",
             )
 
         valid_txt = ""
@@ -607,14 +802,17 @@ def main() -> None:
             nv, nt = secant_valid_map[intervention]
             valid_txt = f" | valid secant (no-transition) {nv}/{nt}"
 
+        case_disp = _display_case_name(file_name, intervention)
         ax.set_title(
-            f"{file_name} | {intervention}   sync check preload-free (lag {case['lag']:+.2f} s){valid_txt}",
+            f"{case_disp}   sync check preload-free (lag {case['lag']:+.2f} s, theta={case['theta_source']}){valid_txt}",
             fontsize=10,
         )
         ax.grid(alpha=0.3)
 
         if i == 0:
-            handles = [h_force, h_theta]
+            handles = [h_force_ctx, h_force, h_theta]
+            if h_start_force_id is not None:
+                handles.append(h_start_force_id)
             if h_start_force is not None:
                 handles.append(h_start_force)
             if h_start_theta is not None:
@@ -627,7 +825,7 @@ def main() -> None:
 
     fig.suptitle(
         "Lamina spreader sync check (stacked) - preload-free distraction force\n"
-        "Only force, theta, and ramp starts are shown; theta is displayed in raw values.",
+        "Gray trace shows full force used for ramp-ID (including pre-ramp); blue trace is preload-free force. Theta is un-subtracted (theta_sm).",
         fontsize=12,
     )
     fig.tight_layout()

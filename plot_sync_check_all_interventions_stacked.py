@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -25,12 +26,38 @@ SHORT_PEAK_GAP_FRAC = 0.35
 MIN_RUN_SAMPLES = 30
 MIN_RISE_SEC = 1.2
 MIN_RISE_THETA_DEG = 0.2
+FORCE_YLIM_N = (-25.0, 125.0)
+THETA_YLIM_DEG = (-4.0, 7.0)
 
 # Global transition-flag criteria (applied across all interventions together).
 TRANSITION_FORCE_Q = 35.0
 TRANSITION_THETA_Q = 75.0
 TRANSITION_MIN_BLOCK = 2
 TRANSITION_EDGE_FORCE_RELAX = 1.08
+SHOW_IDENTIFICATION_OVERLAYS = False
+
+
+def _clean_intervention(name: str) -> str:
+    txt = str(name).strip().replace("_", " ")
+    txt = re.sub(r"^\d+\s*-\s*", "", txt)
+    txt = " ".join(txt.split())
+    low = txt.lower()
+    if "intact" in low and "holding" in low:
+        return "Intact"
+    if low == "intact":
+        return "Intact"
+    if "pubf" in low or low.startswith("puf"):
+        return "PUF"
+    if low.startswith("fuf"):
+        return "FUF"
+    return txt
+
+
+def _display_case_name(file_name: str, intervention: str) -> str:
+    m = re.match(r"^(\d+)\s*-\s*", str(file_name).strip())
+    if m:
+        return f"{m.group(1)} - {_clean_intervention(intervention)}"
+    return _clean_intervention(intervention)
 
 
 def require_flag_block(cyc: pd.DataFrame, min_block: int = TRANSITION_MIN_BLOCK) -> pd.Series:
@@ -164,11 +191,23 @@ def load_synced_case(file_name: str) -> dict:
     force = ls.load_force(ai.find_force_csv(file_name))
     lag0 = ls.find_lag(force, kin)
     lag, _ = ls.refine_lag(kin, force, lag0)
-    d, _, fmax = ls.sync(kin, force, lag)
+    # Step 1 is intended to show raw synchronized signals (no theta smoothing,
+    # no theta0 subtraction), so we sync force onto the mocap clock directly.
+    k = kin.copy()
+    k["t_sync"] = k["t_s"] + lag
+    k["force"] = np.interp(
+        k["t_sync"].to_numpy(float),
+        force["t_s"].to_numpy(float),
+        force["force"].to_numpy(float),
+        left=np.nan,
+        right=np.nan,
+    )
+    d = k[k["force"].notna() & k["theta_deg"].notna()].reset_index(drop=True)
+    fmax = float(np.nanmax(force["force"].to_numpy(float)))
 
     t = d["t_sync"].to_numpy(float)
     f = d["force"].to_numpy(float)
-    th = d["theta_dist"].to_numpy(float)
+    th = d["theta_deg"].to_numpy(float)
 
     runs = ls.segment_cycles(f, ls.CYCLE_THRESH * fmax)
     cands = []
@@ -280,7 +319,7 @@ def main() -> None:
     flagged = cyc[cyc["transition_flag"]].copy()
     print(f"  raw flagged cycles: {len(flagged_raw)}/{len(cyc)}")
     print(f"  block+edge flagged cycles: {len(flagged)}/{len(cyc)}")
-    if not flagged.empty:
+    if SHOW_IDENTIFICATION_OVERLAYS and not flagged.empty:
         print(
             flagged[
                 [
@@ -295,6 +334,8 @@ def main() -> None:
                 ]
             ].to_string(index=False)
         )
+    if not SHOW_IDENTIFICATION_OVERLAYS:
+        print("  Note: transition overlays are hidden in this figure, but flags are still saved to CSV.")
 
     out_csv = OUT_DIR / "sync_check_transition_flags.csv"
     cyc.to_csv(out_csv, index=False)
@@ -318,18 +359,20 @@ def main() -> None:
 
         h_force, = ax.plot(t, f, lw=0.9, color="tab:blue", label="distraction force")
         ax.set_ylabel("force [N]", color="tab:blue")
+        ax.set_ylim(*FORCE_YLIM_N)
         ax.tick_params(axis="y", labelcolor="tab:blue")
 
         ax2 = ax.twinx()
         h_theta, = ax2.plot(t, th, lw=0.9, color="tab:orange", label="theta")
         ax2.set_ylabel("theta [deg]", color="tab:orange")
+        ax2.set_ylim(*THETA_YLIM_DEG)
         ax2.tick_params(axis="y", labelcolor="tab:orange")
 
         h_start_force = None
         h_start_theta = None
         h_flag_force = None
         h_flag_theta = None
-        if idx.size > 0:
+        if SHOW_IDENTIFICATION_OVERLAYS and idx.size > 0:
             is_flag = np.array(
                 [flag_map.get((file_name, int(c["cycle"])), False) for c in cyc_meta],
                 dtype=bool,
@@ -383,7 +426,8 @@ def main() -> None:
                     label="transition start (theta)",
                 )
 
-        ax.set_title(f"{file_name} | {intervention}   sync check (lag {case['lag']:+.2f} s)", fontsize=10)
+        case_disp = _display_case_name(file_name, intervention)
+        ax.set_title(f"{case_disp}   sync check (lag {case['lag']:+.2f} s)", fontsize=10)
         ax.grid(alpha=0.3)
 
         if i == 0:
@@ -403,8 +447,13 @@ def main() -> None:
             ax.set_xlabel("time [s]")
 
     fig.suptitle(
-        "Lamina spreader sync check (top panel style) - all interventions\n"
-        f"transition flag: F_peak<=Q{TRANSITION_FORCE_Q:.0f} and theta_start>=Q{TRANSITION_THETA_Q:.0f}",
+        (
+            "Lamina spreader sync check (top panel style) - all interventions\n"
+            f"transition flag: F_peak<=Q{TRANSITION_FORCE_Q:.0f} and theta_start>=Q{TRANSITION_THETA_Q:.0f}"
+            if SHOW_IDENTIFICATION_OVERLAYS
+            else "Lamina spreader sync check (top panel style) - all interventions\n"
+            "raw force/theta/time only (identification overlays disabled)"
+        ),
         fontsize=12,
     )
     fig.tight_layout()

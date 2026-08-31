@@ -1,65 +1,56 @@
 file_name,intervention,cycle,valid,reason,k_linear_nm_per_deg,r2,fit_span_deg,fit_selection_mode
 2 - Intact Holding Longer,"intact, but holding",1,False,no_valid_linear_window,,,,
-2 - Intact Holding Longer,"intact, but holding",2,False,no_valid_linear_window,,,,
-2 - Intact Holding Longer,"intact, but holding",3,False,no_valid_linear_window,,,,
-2 - Intact Holding Longer,"intact, but holding",4,True,ok,1.483929254189911,0.9088118387321911,1.1148523839246642,fallback_initial_window
-2 - Intact Holding Longer,"intact, but holding",5,True,ok,1.696918240286086,0.950793490384742,0.9635657206518349,fallback_initial_window
-2 - Intact Holding Longer,"intact, but holding",6,True,ok,0.965030347041128,0.9225317310938762,1.068504191613418,fallback_initial_window
-2 - Intact Holding Longer,"intact, but holding",7,True,ok,4.32035355726914,0.8412256191868086,1.1021675106559927,fallback_initial_window
-2 - Intact Holding Longer,"intact, but holding",8,False,too_few_points_after_toe_cut,,,,
-2 - Intact Holding Longer,"intact, but holding",9,True,ok,2.5919352653943606,0.9485678085482204,0.8810116835802537,fallback_initial_window
-3 - PUBF Left,"PUBF, left",1,True,ok,0.7156731547285667,0.9672039850738994,1.908699496945084,fallback_initial_window
-3 - PUBF Left,"PUBF, left",2,False,no_valid_linear_window,,,,
-3 - PUBF Left,"PUBF, left",3,True,ok,3.165533072532507,0.9825971482349751,0.8948325995974457,strict_long_window
-3 - PUBF Left,"PUBF, left",4,True,ok,1.6379054694919113,0.9598434032651432,1.0310596861356314,fallback_initial_window
-3 - PUBF Left,"PUBF, left",5,True,ok,1.2250259519562503,0.9474825533441852,0.8730765348141342,fallback_best_r2
-3 - PUBF Left,"PUBF, left",6,True,ok,1.5704150939709431,0.9778189264925942,1.0077557835814648,strict_initial_window
-3 - PUBF Left,"PUBF, left",7,False,no_valid_linear_window,,,,
-3 - PUBF Left,"PUBF, left",8,False,no_valid_linear_window,,,,
-3 - PUBF Left,"PUBF, left",9,True,ok,2.1434856916586105,0.9046654245693222,1.0659487473807048,fallback_initial_window
-4 - FUF Left,"FUF, left",1,True,ok,2.4135872580068383,0.9721856151259587,1.850304326691432,strict_initial_window
-4 - FUF Left,"FUF, left",2,True,ok,2.9635054216481267,0.9829791858990784,1.3602259310251654,strict_initial_window
-4 - FUF Left,"FUF, left",3,True,ok,1.2219849977953603,0.9756465357027072,1.2267497167369092,strict_initial_window
-4 - FUF Left,"FUF, left",4,True,ok,1.0413409413622816,0.9531931177915571,1.7192014643205447,fallback_initial_window
-4 - FUF Left,"FUF, left",5,True,ok,1.1252971234649656,0.8383940450150422,0.9669586734746,fallback_initial_window
-4 - FUF Left,"FUF, left",7,True,ok,1.1941005739630972,0.9456251599448854,1.7258038298063298,fallback_initial_window
-4 - FUF Left,"FUF, left",8,True,ok,2.8437335994583797,0.9753056515682932,1.2761795277457255,strict_initial_window
-4 - FUF Left,"FUF, left",9,False,no_valid_linear_window,,,,
-4 - FUF Left,"FUF, left",10,True,ok,5.8228269137628805,0.9547234810453269,0.8757894432142481,fallback_initial_window
-5 - FBF,FBF,1,True,ok,2.450664899590001,0.9735594368574971,1.8350996876767027,strict_initial_window
-5 - FBF,FBF,2,True,ok,2.4811991193228256,0.9875430965551576,2.12927000901053,strict_initial_window
-5 - FBF,FBF,3,True,ok,1.8984935479790652,0.9710292762525152,2.704629901406342,strict_initial_window
-5 - FBF,FBF,4,True,ok,1.0498231207240507,0.8108844969469278,0.9908272070985273,fallback_initial_window
-5 - FBF,FBF,5,True,ok,1.2120697815869694,0.9709735438678766,1.7026796012802785,strict_initial_window
-5 - FBF,FBF,6,True,ok,0.9385432300564746,0.9630250988110427,1.5839530106572237,fallback_initial_window
-5 - FBF,FBF,7,False,no_valid_linear_window,,,,
-5 - FBF,FBF,8,True,ok,2.8507236228736037,0.9635197315853703,1.3010213921608969,fallback_initial_window
-5 - FBF,FBF,9,True,ok,1.9943796519290258,0.9748516750602342,1.4319272034387798,strict_initial_window
-5 - FBF,FBF,10,True,ok,2.4457126358425962,0.9827994267126625,1.9271081146154563,strict_initial_window
-6 - Posterior Release,Posterior Release,1,True,ok,2.550958536303654,0.9746114400481605,2.2932691018909646,strict_initial_window
-6 - Posterior Release,Posterior Release,2,True,ok,2.068053558369286,0.976150142536461,3.236873815702786,strict_initial_window
-6 - Posterior Release,Posterior Release,3,True,ok,2.2180932686637873,0.9924273896774328,2.7988746027288767,strict_initial_window
-6 - Posterior Release,Posterior Release,4,True,ok,2.4573019880168783,0.9720434269023731,0.9409441945443822,strict_initial_window
-6 - Posterior Release,Posterior Release,6,True,ok,0.9831994353514705,0.9512138923372786,1.5732524115495732,fallback_initial_window
-6 - Posterior Release,Posterior Release,7,False,no_valid_linear_window,,,,
-6 - Posterior Release,Posterior Release,8,False,too_few_points_after_toe_cut,,,,
-6 - Posterior Release,Posterior Release,9,True,ok,2.323709930982122,0.9874603066562664,3.317292181233532,strict_initial_window
-6 - Posterior Release,Posterior Release,10,True,ok,2.082173844601006,0.9611786316192975,0.8775592927422751,fallback_initial_window
-6 - Posterior Release,Posterior Release,11,True,ok,2.496127861874974,0.9598180807966743,1.1349806241427687,fallback_best_r2
-6 - Posterior Release,Posterior Release,12,True,ok,2.569427913810172,0.9720477417274197,1.2897645969468685,strict_long_window
-7 - SPO,SPO,1,True,ok,2.331988856922357,0.9873706460917373,3.5119280250605334,strict_initial_window
-7 - SPO,SPO,2,True,ok,2.8057324792363403,0.9949612530493297,3.322036373312432,strict_initial_window
-7 - SPO,SPO,3,True,ok,2.4959562095067906,0.9726481119460785,3.6949336824288164,strict_initial_window
-7 - SPO,SPO,4,True,ok,0.8116167192661421,0.9708022121217049,1.6459164952045633,strict_long_window
-7 - SPO,SPO,5,False,no_valid_linear_window,,,,
-7 - SPO,SPO,6,False,too_few_points_after_toe_cut,,,,
-7 - SPO,SPO,7,False,too_few_points_after_toe_cut,,,,
-7 - SPO,SPO,8,False,too_few_points_after_toe_cut,,,,
-7 - SPO,SPO,9,False,too_few_points_after_toe_cut,,,,
-7 - SPO,SPO,10,True,ok,0.9479753986819904,0.9707125481997456,2.1439696279235747,strict_initial_window
-7 - SPO,SPO,11,False,too_few_points_after_toe_cut,,,,
-7 - SPO,SPO,12,False,too_few_points_after_toe_cut,,,,
-7 - SPO,SPO,13,False,too_few_points_after_toe_cut,,,,
-7 - SPO,SPO,14,True,ok,5.110018102760272,0.9702620363955741,0.8929530581008711,strict_initial_window
-7 - SPO,SPO,15,True,ok,1.021086667368874,0.972587689477402,2.816898208508139,strict_initial_window
-7 - SPO,SPO,16,True,ok,1.383516974873599,0.9711822069059035,2.8212315862111383,strict_initial_window
+2 - Intact Holding Longer,"intact, but holding",2,True,ok,4.633085927389728,0.8948490163533812,0.8935609505142316,fallback_best_r2
+2 - Intact Holding Longer,"intact, but holding",3,True,ok,0.8669638953814798,0.7595840654848336,0.8821027883233135,fallback_initial_window
+2 - Intact Holding Longer,"intact, but holding",4,True,ok,1.4450076213878975,0.9525959445037037,0.876024706382536,fallback_initial_window
+2 - Intact Holding Longer,"intact, but holding",5,True,ok,0.7294509898103032,0.9136550282514033,1.2400993321527263,fallback_initial_window
+2 - Intact Holding Longer,"intact, but holding",6,True,ok,1.004195894989823,0.9293215555405674,1.1759400627728793,fallback_initial_window
+2 - Intact Holding Longer,"intact, but holding",7,True,ok,0.5126941217355231,0.9753590226839263,1.166256009283048,strict_initial_window
+2 - Intact Holding Longer,"intact, but holding",8,True,ok,1.4306699433897916,0.9707252161169448,1.0545467153213142,strict_initial_window
+2 - Intact Holding Longer,"intact, but holding",9,True,ok,2.691191969750733,0.9498470782446096,0.9036286527825697,fallback_initial_window
+3 - PUBF Left,"PUBF, left",1,True,ok,0.7885919510324444,0.971607962470354,2.191439298851473,strict_initial_window
+3 - PUBF Left,"PUBF, left",2,True,ok,2.1760403460950144,0.9866726534688388,1.3067533809572287,strict_initial_window
+3 - PUBF Left,"PUBF, left",3,True,ok,2.7176405566981057,0.9710107725154689,1.2461951785109877,strict_initial_window
+3 - PUBF Left,"PUBF, left",4,True,ok,2.04385313814348,0.9700514768169615,0.9895992005313341,strict_initial_window
+3 - PUBF Left,"PUBF, left",5,True,ok,1.6488400949728899,0.9893996773575965,1.1676749911005075,strict_initial_window
+3 - PUBF Left,"PUBF, left",6,True,ok,1.5328135487176375,0.9921229572503041,1.409657630534241,strict_initial_window
+3 - PUBF Left,"PUBF, left",7,True,ok,3.6950790578902146,0.958749024659313,0.8800007989018216,fallback_initial_window
+3 - PUBF Left,"PUBF, left",8,True,ok,2.2283880630811335,0.9716926923256812,0.9008114674571817,strict_initial_window
+3 - PUBF Left,"PUBF, left",9,True,ok,3.5195480117034177,0.9831595783674153,1.4364641876037882,strict_long_window
+4 - FUF Left,"FUF, left",1,True,ok,2.476037971835124,0.9721322368401618,1.601775212831114,strict_initial_window
+4 - FUF Left,"FUF, left",2,True,ok,2.8314744637930906,0.9915744957921943,2.1359222559215474,strict_long_window
+4 - FUF Left,"FUF, left",3,True,ok,1.4789559923674451,0.9662584980977774,0.9208175095940478,fallback_initial_window
+4 - FUF Left,"FUF, left",4,True,ok,0.6036923485456119,0.9727296805286895,1.152449307542057,strict_initial_window
+4 - FUF Left,"FUF, left",5,True,ok,1.7918425108562255,0.9772502181141298,1.0865332027224117,strict_initial_window
+4 - FUF Left,"FUF, left",6,True,ok,0.8014572341564302,0.9718435022587978,1.3548198817389567,strict_initial_window
+4 - FUF Left,"FUF, left",7,True,ok,3.124775988848119,0.9700691775031204,1.7626753600407745,strict_initial_window
+4 - FUF Left,"FUF, left",8,True,ok,2.8674636624412977,0.9839293591178837,1.1974283974059756,strict_initial_window
+4 - FUF Left,"FUF, left",9,True,ok,5.4690288662551305,0.955703010596009,1.2645865171271653,fallback_initial_window
+5 - FBF,FBF,1,True,ok,2.330647355152652,0.9724376180564914,1.7575800333515184,strict_initial_window
+5 - FBF,FBF,2,True,ok,2.43018539221416,0.9936635497976624,2.1764481631711963,strict_initial_window
+5 - FBF,FBF,3,True,ok,1.852373913757261,0.9701917957290558,2.5958701815324727,strict_initial_window
+5 - FBF,FBF,4,True,ok,1.0513974868200662,0.9734075434938892,2.642452236426614,strict_initial_window
+5 - FBF,FBF,5,True,ok,1.4510944463392905,0.9702259307419022,2.1613121924050827,strict_initial_window
+5 - FBF,FBF,6,True,ok,1.502291787956049,0.9736322657453169,2.290415733712455,strict_initial_window
+5 - FBF,FBF,7,True,ok,2.150667874092332,0.9704257101751886,1.8641085861107072,strict_initial_window
+5 - FBF,FBF,8,True,ok,2.551562031664814,0.9858212914961847,2.1726411765413696,strict_initial_window
+5 - FBF,FBF,9,True,ok,2.4200330925493625,0.9923417132213415,2.190184480872792,strict_initial_window
+6 - Posterior Release,Posterior Release,1,True,ok,2.484876775828748,0.9739710647090816,2.3599822673866173,strict_initial_window
+6 - Posterior Release,Posterior Release,2,True,ok,1.758404457427983,0.9760901428975715,3.6174500599771884,strict_initial_window
+6 - Posterior Release,Posterior Release,3,True,ok,2.2020768952332843,0.9968009540062459,2.763110492809063,strict_initial_window
+6 - Posterior Release,Posterior Release,4,True,ok,2.4138199910879155,0.9706797038156171,0.9582402216825565,strict_initial_window
+6 - Posterior Release,Posterior Release,5,True,ok,1.2858975966287347,0.9707545170649239,1.6234613158382647,strict_initial_window
+6 - Posterior Release,Posterior Release,6,True,ok,2.724963009097445,0.959596727264083,0.89283844948147,fallback_initial_window
+6 - Posterior Release,Posterior Release,7,True,ok,2.170537488255396,0.9914229824510148,3.6277424096582838,strict_initial_window
+6 - Posterior Release,Posterior Release,8,True,ok,4.539549713639569,0.8892079962037759,0.8760925579877626,fallback_initial_window
+6 - Posterior Release,Posterior Release,9,True,ok,2.270174139971509,0.9892836543466577,2.270677655240532,strict_initial_window
+6 - Posterior Release,Posterior Release,10,True,ok,4.7834351402155315,0.8695816835100072,1.4162808096581307,fallback_initial_window
+7 - SPO,SPO,1,True,ok,2.421264231261296,0.9945314551262538,3.440321639853747,strict_initial_window
+7 - SPO,SPO,2,True,ok,2.8165842224219464,0.9987351780470815,3.186879743559124,strict_initial_window
+7 - SPO,SPO,3,True,ok,2.5309328806475637,0.979365590964348,3.590582965573284,strict_initial_window
+7 - SPO,SPO,4,False,transition_flagged_excluded,,,,fallback_initial_window
+7 - SPO,SPO,5,False,transition_flagged_excluded,,,,
+7 - SPO,SPO,6,False,transition_flagged_excluded,,,,strict_initial_window
+7 - SPO,SPO,7,True,ok,2.6222408913883726,0.973973215656315,1.8175498733742148,strict_initial_window
+7 - SPO,SPO,8,True,ok,0.9681405624017516,0.9944934183395482,4.00426067885967,strict_initial_window
+7 - SPO,SPO,9,True,ok,1.4551060632447868,0.9928589577553295,3.9979851469779915,strict_initial_window

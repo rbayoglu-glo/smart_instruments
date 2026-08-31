@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,9 +11,10 @@ import plot_theta_moment_time_all_interventions as base
 
 
 OUT_DIR = Path(__file__).parent / "output" / "moment_theta_cycle_grids"
+THETA_XLIM_DEG = (-4.0, 7.0)
+CSV_TRANSITION_FLAGS = Path(__file__).parent / "output" / "sync_check_transition_flags.csv"
 
 # Global linear-region settings shared for all interventions.
-TOE_DEG = float(ls.tip_mm_to_theta_deg(1.0))
 MIN_POINTS = 8
 MIN_SPAN_DEG = float(ls.tip_mm_to_theta_deg(2.0))
 MIN_MOMENT_RISE_NM = float(ls.force_to_moment_nm(5.0))
@@ -23,6 +25,65 @@ FLAT_EDGE_SLOPE_FRACTION_OF_GLOBAL = 0.30
 MIN_FLAT_RUN_SPAN_DEG = float(ls.tip_mm_to_theta_deg(1.2))
 INITIAL_REGION_START_FRAC_MAX = 0.35
 INITIAL_REGION_END_FRAC_MAX = 0.80
+THETA_MIN_DEG = 0.0
+
+
+def _clean_intervention(name: str) -> str:
+    txt = str(name).strip().replace("_", " ")
+    txt = re.sub(r"^\d+\s*-\s*", "", txt)
+    txt = " ".join(txt.split())
+    low = txt.lower()
+    if "intact" in low and "holding" in low:
+        return "Intact"
+    if low == "intact":
+        return "Intact"
+    if "pubf" in low or low.startswith("puf"):
+        return "PUF"
+    if low.startswith("fuf"):
+        return "FUF"
+    return txt
+
+
+def _display_case_name(file_name: str, intervention: str) -> str:
+    m = re.match(r"^(\d+)\s*-\s*", str(file_name).strip())
+    if m:
+        return f"{m.group(1)} - {_clean_intervention(intervention)}"
+    return _clean_intervention(intervention)
+
+
+def _to_bool(series: pd.Series) -> pd.Series:
+    s = series.astype(str).str.strip().str.lower()
+    return s.isin(["true", "1", "yes", "y"])
+
+
+def load_transition_flag_map() -> dict[tuple[str, int], bool]:
+    if not CSV_TRANSITION_FLAGS.exists():
+        return {}
+
+    df = pd.read_csv(CSV_TRANSITION_FLAGS)
+    req = {"file_name", "cycle", "transition_flag"}
+    if df.empty or not req.issubset(df.columns):
+        return {}
+
+    tf = _to_bool(df["transition_flag"])
+    out: dict[tuple[str, int], bool] = {}
+    for r, is_flag in zip(df.itertuples(index=False), tf.to_numpy(bool)):
+        out[(str(r.file_name).strip(), int(r.cycle))] = bool(is_flag)
+    return out
+
+
+def apply_transition_exclusions(results: list[dict], file_name: str, flag_map: dict[tuple[str, int], bool]) -> list[dict]:
+    out = []
+    for res in results:
+        key = (str(file_name).strip(), int(res.get("cycle", -1)))
+        if flag_map.get(key, False):
+            rr = dict(res)
+            rr["ok"] = False
+            rr["reason"] = "transition_flagged_excluded"
+            out.append(rr)
+        else:
+            out.append(res)
+    return out
 
 
 def _line_fit_stats(x: np.ndarray, y: np.ndarray) -> tuple[float, float, float]:
@@ -220,14 +281,14 @@ def analyze_cycle(rec: dict) -> dict:
             "theta_span_ramp_deg": float(rec["theta_span_ramp_deg"]),
         }
 
-    toe_mask = x_env >= TOE_DEG
-    x_lin = x_env[toe_mask]
-    y_lin = y_env[toe_mask]
+    theta_mask = np.isfinite(x_env) & (x_env >= THETA_MIN_DEG)
+    x_lin = x_env[theta_mask]
+    y_lin = y_env[theta_mask]
     if x_lin.size < MIN_POINTS:
         return {
             "cycle": int(rec["cycle"]),
             "ok": False,
-            "reason": "too_few_points_after_toe_cut",
+            "reason": "too_few_points_theta_nonnegative",
             "x_raw": x_raw,
             "y_raw": y_raw,
             "x_env": x_env,
@@ -304,7 +365,14 @@ def analyze_cycle(rec: dict) -> dict:
     }
 
 
-def plot_moment_theta_grid(results: list[dict], file_name: str, intervention: str, out_png: Path) -> None:
+def plot_moment_theta_grid(
+    results: list[dict],
+    file_name: str,
+    intervention: str,
+    out_png: Path,
+    xlim_deg: tuple[float, float] | None = None,
+    ylim_nm: tuple[float, float] | None = None,
+) -> None:
     n = len(results)
     ncols = 3
     nrows = int(np.ceil(n / ncols))
@@ -325,8 +393,6 @@ def plot_moment_theta_grid(results: list[dict], file_name: str, intervention: st
         if "x_active" in res and np.asarray(res["x_active"]).size:
             ax.plot(res["x_active"], res["y_active"], color="tab:green", lw=1.4, label="envelope (flat removed)")
 
-        ax.axvline(TOE_DEG, color="tab:red", lw=1.0, ls="--", alpha=0.9)
-
         if res["ok"]:
             i0 = int(res["i0"])
             i1 = int(res["i1"])
@@ -344,8 +410,12 @@ def plot_moment_theta_grid(results: list[dict], file_name: str, intervention: st
         ax.set_title(title, fontsize=8)
         ax.set_xlabel("theta_rel [deg]")
         ax.set_ylabel("moment_rel [Nm]")
+        if xlim_deg is not None:
+            ax.set_xlim(*xlim_deg)
+        if ylim_nm is not None:
+            ax.set_ylim(*ylim_nm)
         ax.grid(alpha=0.25)
-        ax.legend(loc="lower right", fontsize=7)
+        ax.legend(loc="upper left", fontsize=7)
 
     for j in range(n, nrows * ncols):
         axes[j // ncols][j % ncols].axis("off")
@@ -375,7 +445,7 @@ def plot_moment_theta_grid(results: list[dict], file_name: str, intervention: st
             fontsize=8,
             bbox={"facecolor": "white", "alpha": 0.80, "edgecolor": "0.75"},
         )
-        axk.legend(loc="best", fontsize=8)
+        axk.legend(loc="upper left", fontsize=8)
 
     axk.set_title("Cycle-wise linear-region stiffness from first to last cycle", fontsize=10)
     axk.set_xlabel("cycle number")
@@ -383,9 +453,10 @@ def plot_moment_theta_grid(results: list[dict], file_name: str, intervention: st
     axk.set_xticks(cycles)
     axk.grid(alpha=0.25)
 
+    case_disp = _display_case_name(file_name, intervention)
     fig.suptitle(
-        f"{file_name} ({intervention}): moment vs theta for all loading cycles\n"
-        f"Forward envelope + toe removal (theta < {TOE_DEG:.1f} deg) + linear-region regression; no fixed 1-4 Nm anchors",
+        f"{case_disp}: moment vs theta for all loading cycles\n"
+        "Forward envelope + linear-region regression using theta >= 0 deg fit points; no fixed 1-4 Nm anchors",
         fontsize=12,
     )
     fig.savefig(out_png, dpi=180)
@@ -429,6 +500,7 @@ def save_metrics(results: list[dict], out_csv: Path, file_name: str, interventio
 
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    transition_flags = load_transition_flag_map()
 
     tracker = base.ai.tracker_cases().copy()
     tracker["File Name"] = tracker["File Name"].astype(str).str.strip()
@@ -452,13 +524,48 @@ def main() -> None:
             continue
 
         results = [analyze_cycle(rec) for rec in cycles]
+        results = apply_transition_exclusions(results, file_name, transition_flags)
+
+        case_ymin = np.inf
+        case_ymax = -np.inf
+        for res in results:
+            y_raw = np.asarray(res.get("y_raw", np.array([])), dtype=float)
+            if y_raw.size > 0 and np.any(np.isfinite(y_raw)):
+                case_ymin = min(case_ymin, float(np.nanmin(y_raw)))
+                case_ymax = max(case_ymax, float(np.nanmax(y_raw)))
+
+        case_xlim_deg = THETA_XLIM_DEG
+
+        if np.isfinite(case_ymin) and np.isfinite(case_ymax) and case_ymax > case_ymin:
+            y_span = case_ymax - case_ymin
+            y_pad = max(0.5, 0.06 * y_span)
+            case_ylim_nm = (case_ymin - y_pad, case_ymax + y_pad)
+        else:
+            case_ylim_nm = None
 
         stem = base.sanitize(file_name)
         out_png = OUT_DIR / f"{stem}_all_cycles_moment_theta.png"
         out_csv = OUT_DIR / f"{stem}_all_cycles_moment_theta_metrics.csv"
 
-        plot_moment_theta_grid(results, file_name, intervention, out_png)
+        plot_moment_theta_grid(
+            results,
+            _display_case_name(file_name, intervention),
+            _clean_intervention(intervention),
+            out_png,
+            xlim_deg=case_xlim_deg,
+            ylim_nm=case_ylim_nm,
+        )
         save_metrics(results, out_csv, file_name, intervention)
+
+        print(
+            f"{file_name} theta x-limits [deg]: "
+            f"{case_xlim_deg[0]:.2f} to {case_xlim_deg[1]:.2f}"
+        )
+        if case_ylim_nm is not None:
+            print(
+                f"{file_name} moment y-limits [Nm]: "
+                f"{case_ylim_nm[0]:.2f} to {case_ylim_nm[1]:.2f}"
+            )
 
         for res in results:
             all_rows.append(

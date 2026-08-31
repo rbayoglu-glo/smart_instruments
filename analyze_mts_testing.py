@@ -41,7 +41,7 @@ MOTION_CONFIG = {
 # Intervention labels follow the existing lab naming order.
 DEFAULT_INTERVENTION_NAMES = [
 	"Intact",
-	"PUBF Left",
+	"PUF Left",
 	"FUF Left",
 	"FBF",
 	"Posterior Release",
@@ -477,26 +477,49 @@ def plot_intervention(
 		ax.axvline(0, color="k", linewidth=0.8)
 		ax.legend(loc="lower right", fontsize=8)
 
-		coeff_text = (
-			f"C1={poly3_coeff[0]:.3f}\n"
-			f"C2={poly3_coeff[1]:.3f}\n"
-			f"C3={poly3_coeff[2]:.3f}"
-		)
-		ax.text(
-			0.03,
-			0.97,
-			coeff_text,
-			transform=ax.transAxes,
-			fontsize=8,
-			verticalalignment="top",
-			bbox={"boxstyle": "round", "facecolor": "white", "alpha": 0.85},
-		)
-
 	fig.suptitle(f"{intervention} Stiffness - {TEST_LABEL}", fontsize=14)
 	plt.tight_layout()
 	output_name = f"{sanitize_filename(intervention)}_stiffness.png"
 	fig.savefig(output_dir / output_name, dpi=300, bbox_inches="tight")
 	plt.close(fig)
+
+
+def plot_all_interventions_by_motion(
+	all_motion_results: dict[str, dict[str, dict[str, np.ndarray | float]]],
+	output_dir: Path,
+) -> None:
+	for motion_name, cfg in MOTION_CONFIG.items():
+		fig, ax = plt.subplots(figsize=(8, 6))
+
+		for intervention, motion_results in all_motion_results.items():
+			if motion_name not in motion_results:
+				continue
+
+			angle_avg = np.asarray(motion_results[motion_name]["angle_avg_centered"], dtype=float)
+			moment_avg = np.asarray(motion_results[motion_name]["moment_avg_centered"], dtype=float)
+
+			if angle_avg.size < 2 or moment_avg.size < 2:
+				continue
+
+			ax.plot(
+				angle_avg,
+				moment_avg,
+				linewidth=2.0,
+				label=intervention,
+			)
+
+		ax.set_xlabel("Angle (deg)", fontsize=11)
+		ax.set_ylabel(cfg["axis_label"], fontsize=11)
+		ax.set_title(f"{motion_name} | Avg(load/unload), centered", fontsize=12)
+		ax.grid(True, linestyle="--", alpha=0.6)
+		ax.axhline(0, color="k", linewidth=0.8)
+		ax.axvline(0, color="k", linewidth=0.8)
+		ax.legend(loc="upper left", fontsize=9)
+
+		out_name = f"all_interventions_{sanitize_filename(motion_name)}_avg_centered.png"
+		fig.tight_layout()
+		fig.savefig(output_dir / out_name, dpi=300, bbox_inches="tight")
+		plt.close(fig)
 
 
 def plot_coefficient_illustration(
@@ -617,8 +640,7 @@ def main() -> None:
 	interventions = build_intervention_map(book_numbers)
 
 	stiffness_rows: list[dict[str, float | str]] = []
-	illustration_done = False
-	fallback_fe: tuple[str, dict[str, np.ndarray | float]] | None = None
+	all_motion_results: dict[str, dict[str, dict[str, np.ndarray | float]]] = {}
 
 	for intervention, books in interventions.items():
 		motion_results: dict[str, dict[str, np.ndarray | float]] = {}
@@ -701,17 +723,11 @@ def main() -> None:
 				}
 			)
 
+		all_motion_results[intervention] = motion_results
+
 		plot_intervention(intervention, motion_results, OUTPUT_DIR)
 
-		if "Flexion/Extension" in motion_results:
-			if fallback_fe is None:
-				fallback_fe = (intervention, motion_results["Flexion/Extension"])
-			if (not illustration_done) and (intervention.lower() == "intact"):
-				plot_coefficient_illustration(intervention, motion_results["Flexion/Extension"], OUTPUT_DIR)
-				illustration_done = True
-
-	if (not illustration_done) and (fallback_fe is not None):
-		plot_coefficient_illustration(fallback_fe[0], fallback_fe[1], OUTPUT_DIR)
+	plot_all_interventions_by_motion(all_motion_results, OUTPUT_DIR)
 
 	stiffness_df = pd.DataFrame(stiffness_rows)
 	print_rankings(stiffness_df)

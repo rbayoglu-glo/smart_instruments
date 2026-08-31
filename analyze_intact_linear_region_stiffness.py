@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -10,7 +11,7 @@ import plot_theta_moment_time_all_interventions as base
 
 OUT_DIR = Path(__file__).parent / "output" / "intact_holding_cycle_traces"
 FILE_NAME = "2 - Intact Holding Longer"
-TOE_MM = 1.0
+DISPLACEMENT_MIN_MM = 0.0
 MIN_POINTS = 8
 MIN_SPAN_MM = 2.0
 MIN_FORCE_RISE_N = 5.0
@@ -21,6 +22,29 @@ FLAT_EDGE_SLOPE_FRACTION_OF_GLOBAL = 0.30
 MIN_FLAT_RUN_SPAN_MM = 1.2
 INITIAL_REGION_START_FRAC_MAX = 0.35
 INITIAL_REGION_END_FRAC_MAX = 0.80
+
+
+def _clean_intervention(name: str) -> str:
+    txt = str(name).strip().replace("_", " ")
+    txt = re.sub(r"^\d+\s*-\s*", "", txt)
+    txt = " ".join(txt.split())
+    low = txt.lower()
+    if "intact" in low and "holding" in low:
+        return "Intact"
+    if low == "intact":
+        return "Intact"
+    if "pubf" in low or low.startswith("puf"):
+        return "PUF"
+    if low.startswith("fuf"):
+        return "FUF"
+    return txt
+
+
+def _display_case_name(file_name: str, intervention: str) -> str:
+    m = re.match(r"^(\d+)\s*-\s*", str(file_name).strip())
+    if m:
+        return f"{m.group(1)} - {_clean_intervention(intervention)}"
+    return _clean_intervention(intervention)
 
 
 def _line_fit_stats(x: np.ndarray, y: np.ndarray) -> tuple[float, float, float]:
@@ -206,6 +230,21 @@ def find_best_linear_region(x: np.ndarray, y: np.ndarray, idx_orig: np.ndarray |
 def analyze_cycle(rec: dict) -> dict:
     x_raw = np.asarray(rec["tip_rel_mm"], dtype=float)
     y_raw = np.asarray(rec["force_dyn_N"], dtype=float)
+    theta_start_deg = float(rec.get("theta_start_deg", np.nan))
+    non_neutral_start = bool(rec.get("non_neutral_start", False))
+
+    if non_neutral_start:
+        return {
+            "cycle": int(rec["cycle"]),
+            "ok": False,
+            "reason": "non_neutral_start_excluded",
+            "x_raw": x_raw,
+            "y_raw": y_raw,
+            "x_env": np.array([]),
+            "y_env": np.array([]),
+            "theta_start_deg": theta_start_deg,
+            "non_neutral_start": non_neutral_start,
+        }
 
     x_env, y_env, env_reason = extract_forward_loading_envelope(x_raw, y_raw)
     if env_reason != "ok":
@@ -217,20 +256,24 @@ def analyze_cycle(rec: dict) -> dict:
             "y_raw": y_raw,
             "x_env": x_env,
             "y_env": y_env,
+            "theta_start_deg": theta_start_deg,
+            "non_neutral_start": non_neutral_start,
         }
 
-    toe_mask = x_env >= TOE_MM
-    x_lin = x_env[toe_mask]
-    y_lin = y_env[toe_mask]
+    displacement_mask = np.isfinite(x_env) & (x_env >= DISPLACEMENT_MIN_MM)
+    x_lin = x_env[displacement_mask]
+    y_lin = y_env[displacement_mask]
     if x_lin.size < MIN_POINTS:
         return {
             "cycle": int(rec["cycle"]),
             "ok": False,
-            "reason": "too_few_points_after_toe_cut",
+            "reason": "too_few_points_displacement_nonnegative",
             "x_raw": x_raw,
             "y_raw": y_raw,
             "x_env": x_env,
             "y_env": y_env,
+            "theta_start_deg": theta_start_deg,
+            "non_neutral_start": non_neutral_start,
         }
 
     x_active, y_active, idx_active, flat_thr, flat_reason = remove_flat_subregions(x_lin, y_lin)
@@ -249,6 +292,8 @@ def analyze_cycle(rec: dict) -> dict:
             "y_active": y_active,
             "flat_slope_thr": flat_thr,
             "flat_filter_reason": flat_reason,
+            "theta_start_deg": theta_start_deg,
+            "non_neutral_start": non_neutral_start,
         }
 
     fit = find_best_linear_region(x_active, y_active, idx_active)
@@ -267,6 +312,8 @@ def analyze_cycle(rec: dict) -> dict:
             "y_active": y_active,
             "flat_slope_thr": flat_thr,
             "flat_filter_reason": flat_reason,
+            "theta_start_deg": theta_start_deg,
+            "non_neutral_start": non_neutral_start,
         }
 
     i0 = int(fit["i0"])
@@ -292,10 +339,19 @@ def analyze_cycle(rec: dict) -> dict:
         "f1_n": float(y_active[i1]),
         "flat_slope_thr": flat_thr,
         "flat_filter_reason": flat_reason,
+        "theta_start_deg": theta_start_deg,
+        "non_neutral_start": non_neutral_start,
     }
 
 
-def plot_cycle_grid(results: list[dict], file_name: str, intervention: str, out_png: Path) -> None:
+def plot_cycle_grid(
+    results: list[dict],
+    file_name: str,
+    intervention: str,
+    out_png: Path,
+    xlim_mm: tuple[float, float] | None = None,
+    ylim_n: tuple[float, float] | None = None,
+) -> None:
     n = len(results)
     ncols = 3
     nrows = int(np.ceil(n / ncols))
@@ -315,8 +371,6 @@ def plot_cycle_grid(results: list[dict], file_name: str, intervention: str, out_
             ax.plot(res["x_env"], res["y_env"], color="tab:blue", lw=1.5, label="forward envelope")
         if "x_active" in res and np.asarray(res["x_active"]).size:
             ax.plot(res["x_active"], res["y_active"], color="tab:green", lw=1.4, label="envelope (flat removed)")
-
-        ax.axvline(TOE_MM, color="tab:red", lw=1.0, ls="--", alpha=0.9)
 
         if res["ok"]:
             i0 = int(res["i0"])
@@ -338,8 +392,12 @@ def plot_cycle_grid(results: list[dict], file_name: str, intervention: str, out_
         ax.set_title(title, fontsize=8)
         ax.set_xlabel("tip displacement [mm]")
         ax.set_ylabel("force without preload [N]")
+        if ylim_n is not None:
+            ax.set_ylim(*ylim_n)
+        if xlim_mm is not None:
+            ax.set_xlim(*xlim_mm)
         ax.grid(alpha=0.25)
-        ax.legend(loc="lower right", fontsize=7)
+        ax.legend(loc="upper left", fontsize=7)
 
     for j in range(n, nrows * ncols):
         axes[j // ncols][j % ncols].axis("off")
@@ -374,11 +432,12 @@ def plot_cycle_grid(results: list[dict], file_name: str, intervention: str, out_
     axk.grid(alpha=0.25)
     handles, labels = axk.get_legend_handles_labels()
     if handles:
-        axk.legend(loc="best", fontsize=8)
+        axk.legend(loc="upper left", fontsize=8)
 
+    case_disp = _display_case_name(file_name, intervention)
     fig.suptitle(
-        f"{file_name} ({intervention})\n"
-        f"Forward-loading envelope + toe removal (x < {TOE_MM:.1f} mm discarded) + linear regression stiffness\n"
+        f"{case_disp}\n"
+        "Forward-loading envelope + linear regression stiffness (displacement >= 0 mm for fit points)\n"
         f"strict fit prefers larger windows (span >= {MIN_SPAN_MM:.1f} mm, R2 >= {MIN_R2_STRICT:.2f}); long flat runs removed",
         fontsize=12,
     )
@@ -407,6 +466,8 @@ def save_metrics(results: list[dict], out_csv: Path) -> None:
                 "fit_selection_mode": str(res["fit_selection_mode"]) if res.get("ok", False) else "",
                 "flat_slope_thr_n_per_mm": float(res["flat_slope_thr"]) if "flat_slope_thr" in res and np.isfinite(res["flat_slope_thr"]) else np.nan,
                 "flat_filter_reason": str(res["flat_filter_reason"]) if "flat_filter_reason" in res else "",
+                "theta_start_deg": float(res["theta_start_deg"]) if "theta_start_deg" in res and np.isfinite(res["theta_start_deg"]) else np.nan,
+                "non_neutral_start": bool(res.get("non_neutral_start", False)),
             }
         )
 

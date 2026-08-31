@@ -9,6 +9,7 @@ import pandas as pd
 import analyze_interventions as ai
 import analyze_spreader_secant_stiffness as ass
 import lamina_spreader as ls
+import spreader_cycle_pipeline as spc
 
 
 OUT_DIR = Path(__file__).parent / "output" / "theta_moment_time_cycle_grids"
@@ -175,49 +176,25 @@ def marker_points_with_time(
 
 
 def build_cycle_rows(file_name: str, intervention: str) -> list[dict]:
-    kin = ls.compute_theta(
-        ls.parse_poses(ai.find_robot_folder(file_name) / "pf" / "poses.txt", ls.SPREADER_UUID)
-    )
-    force = ls.load_force(ai.find_force_csv(file_name))
-    lag, _ = ls.refine_lag(kin, force, ls.find_lag(force, kin))
-    d, _, fmax = ls.sync(kin, force, lag)
-
-    f = d["force"].to_numpy()
-    th = d["theta_dist"].to_numpy()
-    t = d["t_sync"].to_numpy()
+    case = spc.load_case(file_name)
+    t = case["t"]
+    f_dyn = case["f_dyn"]
+    th_filt = case["th_filt"]
 
     rows: list[dict] = []
-    runs = ls.segment_cycles(f, ls.CYCLE_THRESH * fmax)
-    for n, (s, e) in enumerate(runs, 1):
-        rb = ls.ramp_bounds(f, s, e, fmax)
-        if rb is None:
-            continue
-
-        i0, i1, pk = rb
-        ramp = np.arange(i0, i1)
+    for n, c in enumerate(case["cycles"], 1):
+        i0 = int(c["i0"])
+        pk = int(c["pk"])
+        ramp = np.arange(i0, pk + 1)
         if ramp.size < 4:
             continue
 
-        f0 = float(f[i0])
-        f_dyn = f[ramp] - f0
-        if float(np.nanmax(f_dyn)) <= 0:
+        f_dyn_ramp = f_dyn[ramp]
+        if not np.any(np.isfinite(f_dyn_ramp)) or float(np.nanmax(f_dyn_ramp)) <= 0:
             continue
 
-        early_n = min(ass.FORCE_ZERO_MAX_SAMPLES, len(ramp))
-        early = np.arange(early_n)
-        zero_idx = early[np.abs(f_dyn[early]) <= ass.FORCE_ZERO_BAND_N]
-
-        if zero_idx.size >= ass.FORCE_ZERO_MIN_SAMPLES:
-            th_ref = float(np.nanmedian(th[ramp[zero_idx]]))
-        else:
-            iref0 = max(0, i0 - ass.THETA_REF_WINDOW + 1)
-            th_ref = float(np.nanmedian(th[iref0:i0 + 1]))
-
-        if not np.isfinite(th_ref):
-            th_ref = float(th[i0])
-
-        theta_rel = th[ramp] - th_ref
-        moment_rel = ls.force_to_moment_nm(f_dyn)
+        theta_rel = th_filt[ramp]
+        moment_rel = ls.force_to_moment_nm(f_dyn_ramp)
         t_rel = t[ramp] - t[ramp[0]]
 
         old_k, _, _, old_dtheta = old_secant(theta_rel, moment_rel, M_LOW, M_HIGH)

@@ -7,6 +7,7 @@ import pandas as pd
 import analyze_spreader_secant_stiffness as ass
 import lamina_spreader as ls
 import plot_theta_moment_time_all_interventions as base
+import spreader_cycle_pipeline as spc
 
 
 OUT_DIR = Path(__file__).parent / "output" / "intact_holding_cycle_traces"
@@ -14,6 +15,7 @@ FILE_NAME = "2 - Intact Holding Longer"
 
 M_SECANT_NM = (1.0, 4.0)
 F_SECANT_N = np.asarray([ls.moment_to_force_n(m) for m in M_SECANT_NM], dtype=float)
+NON_NEUTRAL_START_ABS_THETA_DEG = float(spc.THETA_ZERO_SOURCE_MAX_ABS_DEG)
 
 
 def marker_tip_at_force_targets(
@@ -118,60 +120,43 @@ def marker_tip_at_force_targets(
 
 
 def build_cycle_rows_force_tip(file_name: str, intervention: str) -> list[dict]:
-    kin = ls.compute_theta(
-        ls.parse_poses(base.ai.find_robot_folder(file_name) / "pf" / "poses.txt", ls.SPREADER_UUID)
-    )
-    force = ls.load_force(base.ai.find_force_csv(file_name))
-    lag, _ = ls.refine_lag(kin, force, ls.find_lag(force, kin))
-    d, _, fmax = ls.sync(kin, force, lag)
-
-    f = d["force"].to_numpy()
-    th = d["theta_dist"].to_numpy()
+    case = spc.load_case(file_name)
+    f_dyn = case["f_dyn"]
+    th_filt = case["th_filt"]
 
     rows: list[dict] = []
-    runs = ls.segment_cycles(f, ls.CYCLE_THRESH * fmax)
-    for n, (s, e) in enumerate(runs, 1):
-        rb = ls.ramp_bounds(f, s, e, fmax)
-        if rb is None:
-            continue
-
-        i0, i1, pk = rb
-        ramp = np.arange(i0, i1)
+    for n, c in enumerate(case["cycles"], 1):
+        i0 = int(c["i0"])
+        pk = int(c["pk"])
+        ramp = np.arange(i0, pk + 1)
         if ramp.size < 4:
             continue
 
-        f0 = float(f[i0])
-        f_dyn = f[ramp] - f0
-        if float(np.nanmax(f_dyn)) <= 0:
+        f_dyn_ramp = f_dyn[ramp]
+        if not np.any(np.isfinite(f_dyn_ramp)) or float(np.nanmax(f_dyn_ramp)) <= 0:
             continue
 
-        early_n = min(ass.FORCE_ZERO_MAX_SAMPLES, len(ramp))
-        early = np.arange(early_n)
-        zero_idx = early[np.abs(f_dyn[early]) <= ass.FORCE_ZERO_BAND_N]
-
-        if zero_idx.size >= ass.FORCE_ZERO_MIN_SAMPLES:
-            th_ref = float(np.nanmedian(th[ramp[zero_idx]]))
-        else:
-            iref0 = max(0, i0 - ass.THETA_REF_WINDOW + 1)
-            th_ref = float(np.nanmedian(th[iref0:i0 + 1]))
-
-        if not np.isfinite(th_ref):
-            th_ref = float(th[i0])
-
-        theta_rel = th[ramp] - th_ref
+        theta_rel = th_filt[ramp]
+        theta_start_deg = float(theta_rel[0]) if theta_rel.size > 0 and np.isfinite(theta_rel[0]) else np.nan
+        non_neutral_start = bool(
+            np.isfinite(theta_start_deg) and abs(theta_start_deg) > NON_NEUTRAL_START_ABS_THETA_DEG
+        )
         tip_rel_mm = ls.theta_deg_to_tip_mm(theta_rel)
-        mark = marker_tip_at_force_targets(tip_rel_mm, f_dyn, F_SECANT_N)
+
+        mark = marker_tip_at_force_targets(tip_rel_mm, f_dyn_ramp, F_SECANT_N)
 
         rows.append(
             {
                 "file_name": file_name,
                 "intervention": intervention,
                 "cycle": int(n),
-                "force_dyn_N": f_dyn,
+                "force_dyn_N": f_dyn_ramp,
                 "tip_rel_mm": tip_rel_mm,
-                "F_peak_dyn_N": float(np.nanmax(f_dyn)),
+                "F_peak_dyn_N": float(np.nanmax(f_dyn_ramp)),
                 "tip_span_mm": float(np.ptp(tip_rel_mm)),
-                "tip_at_peak_mm": float(tip_rel_mm[int(np.nanargmax(f_dyn))]),
+                "tip_at_peak_mm": float(tip_rel_mm[int(np.nanargmax(f_dyn_ramp))]),
+                "theta_start_deg": theta_start_deg,
+                "non_neutral_start": non_neutral_start,
                 "tip_at_markers_mm": mark["tip_at_targets_mm"],
                 "k_1to4_n_per_mm": float(mark["k_1to4_n_per_mm"]) if np.isfinite(mark["k_1to4_n_per_mm"]) else np.nan,
                 "marker_reason": str(mark["marker_reason"]),
