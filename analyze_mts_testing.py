@@ -21,8 +21,8 @@ MOTION_CONFIG = {
 	"Flexion/Extension": {
 		"moment_col": "Mx (Nm)",
 		"axis_label": "Mx (Nm)",
-		"fit_angle_min_deg": 0.5,
-		"fit_angle_max_deg": 2.0,
+		"fit_angle_min_deg": -2.0,
+		"fit_angle_max_deg": -0.5,
 	},
 	"Lateral Bending": {
 		"moment_col": "My (Nm)",

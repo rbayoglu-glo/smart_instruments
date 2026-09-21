@@ -1,0 +1,27 @@
+metric,condition,fit_selection_mode,n_cycles,share
+k_rot,Intact,fallback_initial_window,5,0.625
+k_rot,Intact,strict_initial_window,2,0.25
+k_rot,Intact,fallback_best_r2,1,0.125
+k_rot,PUF Left,strict_initial_window,7,0.7777777777777778
+k_rot,PUF Left,fallback_initial_window,1,0.1111111111111111
+k_rot,PUF Left,strict_long_window,1,0.1111111111111111
+k_rot,FUF Left,strict_initial_window,6,0.6666666666666666
+k_rot,FUF Left,fallback_initial_window,2,0.2222222222222222
+k_rot,FUF Left,strict_long_window,1,0.1111111111111111
+k_rot,FBF,strict_initial_window,9,1.0
+k_rot,Posterior Release,strict_initial_window,7,0.7
+k_rot,Posterior Release,fallback_initial_window,3,0.3
+k_rot,SPO,strict_initial_window,6,1.0
+k_lin,Intact,fallback_initial_window,5,0.625
+k_lin,Intact,strict_initial_window,2,0.25
+k_lin,Intact,fallback_best_r2,1,0.125
+k_lin,PUF Left,strict_initial_window,7,0.7777777777777778
+k_lin,PUF Left,fallback_initial_window,1,0.1111111111111111
+k_lin,PUF Left,strict_long_window,1,0.1111111111111111
+k_lin,FUF Left,strict_initial_window,6,0.6666666666666666
+k_lin,FUF Left,fallback_initial_window,2,0.2222222222222222
+k_lin,FUF Left,strict_long_window,1,0.1111111111111111
+k_lin,FBF,strict_initial_window,9,1.0
+k_lin,Posterior Release,strict_initial_window,7,0.7
+k_lin,Posterior Release,fallback_initial_window,3,0.3
+k_lin,SPO,strict_initial_window,6,1.0

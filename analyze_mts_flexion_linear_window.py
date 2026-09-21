@@ -93,11 +93,11 @@ def compute_two_point_stiffness(
     return k_abs, theta_low, theta_high
 
 
-def extract_centered_positive_flexion_branch(
+def extract_centered_negative_flexion_branch_native(
     angle_cycle_deg: np.ndarray,
     moment_cycle_nm: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, str]:
-    """Use the same centered branch basis as the prior MTS flexion plot."""
+    """Extract flexion branch directly on native negative theta/moment axes."""
     m_avg, a_avg, _, _ = mts.compute_centered_average_curve(angle_cycle_deg, moment_cycle_nm)
     if m_avg.size < 3 or a_avg.size < 3:
         return np.array([]), np.array([]), a_avg, m_avg, "centered_curve_too_short"
@@ -105,24 +105,50 @@ def extract_centered_positive_flexion_branch(
     mask = (
         np.isfinite(a_avg)
         & np.isfinite(m_avg)
-        & (a_avg >= 0.0)
-        & (m_avg >= 0.0)
-        & (m_avg <= (MAX_MOMENT_NM + 1e-9))
+        & (a_avg <= 0.0)
+        & (m_avg <= 0.0)
+        & (m_avg >= -(MAX_MOMENT_NM + 1e-9))
     )
     idx = np.flatnonzero(mask)
     if idx.size < 3:
-        return np.array([]), np.array([]), a_avg, m_avg, "no_positive_flexion_branch"
+        return np.array([]), np.array([]), a_avg, m_avg, "no_negative_flexion_branch"
 
-    # Keep the largest contiguous run on the positive flexion branch.
+    # Keep the largest contiguous run on the native negative flexion branch.
     breaks = np.where(np.diff(idx) > 1)[0] + 1
     runs = np.split(idx, breaks)
     run = max(runs, key=lambda r: r.size)
     if run.size < 3:
-        return np.array([]), np.array([]), a_avg, m_avg, "positive_branch_too_short"
+        return np.array([]), np.array([]), a_avg, m_avg, "negative_branch_too_short"
 
     theta_branch = a_avg[run]
     moment_branch = m_avg[run]
     return theta_branch, moment_branch, a_avg, m_avg, "ok"
+
+
+def extract_centered_positive_extension_branch_native(
+    theta_centered_deg: np.ndarray,
+    moment_centered_nm: np.ndarray,
+) -> tuple[np.ndarray, np.ndarray, str]:
+    mask = (
+        np.isfinite(theta_centered_deg)
+        & np.isfinite(moment_centered_nm)
+        & (theta_centered_deg >= 0.0)
+        & (moment_centered_nm >= 0.0)
+        & (moment_centered_nm <= (MAX_MOMENT_NM + 1e-9))
+    )
+    idx = np.flatnonzero(mask)
+    if idx.size < 3:
+        return np.array([]), np.array([]), "no_positive_extension_branch"
+
+    breaks = np.where(np.diff(idx) > 1)[0] + 1
+    runs = np.split(idx, breaks)
+    run = max(runs, key=lambda r: r.size)
+    if run.size < 3:
+        return np.array([]), np.array([]), "positive_extension_branch_too_short"
+
+    theta_branch = theta_centered_deg[run]
+    moment_branch = moment_centered_nm[run]
+    return theta_branch, moment_branch, "ok"
 
 
 def analyze_intervention(intervention: str, book_num: int) -> dict:
@@ -130,10 +156,30 @@ def analyze_intervention(intervention: str, book_num: int) -> dict:
     angle, moment = mts.read_motion_data(file_path, mts.MOTION_CONFIG[MOTION_NAME]["moment_col"])
     _, _, angle_cycle, moment_cycle = mts.extract_third_cycle(angle, moment)
 
-    theta_branch, moment_branch, theta_avg, moment_avg, branch_reason = extract_centered_positive_flexion_branch(
+    theta_branch_native, moment_branch_native, theta_avg, moment_avg, branch_reason = extract_centered_negative_flexion_branch_native(
         angle_cycle,
         moment_cycle,
     )
+
+    theta_branch_ext, moment_branch_ext, extension_reason = extract_centered_positive_extension_branch_native(
+        theta_avg,
+        moment_avg,
+    )
+    theta_sel_ext = np.array([])
+    moment_sel_ext = np.array([])
+    extension_fit_valid = False
+    k_sec_extension_nm_per_deg = np.nan
+    if extension_reason == "ok":
+        theta_ext_m_low = interpolate_theta_at_moment(theta_branch_ext, moment_branch_ext, M_LOW_NM)
+        theta_ext_m_high = interpolate_theta_at_moment(theta_branch_ext, moment_branch_ext, M_HIGH_NM)
+        if np.isfinite(theta_ext_m_low) and np.isfinite(theta_ext_m_high):
+            theta_sel_ext = np.asarray([theta_ext_m_low, theta_ext_m_high], dtype=float)
+            moment_sel_ext = np.asarray([M_LOW_NM, M_HIGH_NM], dtype=float)
+            dtheta_ext = float(theta_ext_m_high - theta_ext_m_low)
+            if abs(dtheta_ext) > 1e-10:
+                k_sec_extension_nm_per_deg = float(abs((M_HIGH_NM - M_LOW_NM) / dtheta_ext))
+                extension_fit_valid = True
+
     if branch_reason != "ok":
         return {
             "Intervention": intervention,
@@ -150,8 +196,12 @@ def analyze_intervention(intervention: str, book_num: int) -> dict:
             "theta_at_m_high_deg": np.nan,
             "theta_sel": np.array([]),
             "moment_sel": np.array([]),
-            "theta_branch": theta_branch,
-            "moment_branch": moment_branch,
+            "theta_sel_extension": theta_sel_ext,
+            "moment_sel_extension": moment_sel_ext,
+            "extension_fit_valid": bool(extension_fit_valid),
+            "k_sec_extension_nm_per_deg": float(k_sec_extension_nm_per_deg) if np.isfinite(k_sec_extension_nm_per_deg) else np.nan,
+            "theta_branch": theta_branch_native,
+            "moment_branch": moment_branch_native,
             "theta_avg_centered": theta_avg,
             "moment_avg_centered": moment_avg,
             "k_linear_1to5_nm_per_deg": np.nan,
@@ -160,34 +210,38 @@ def analyze_intervention(intervention: str, book_num: int) -> dict:
             "k_secant_0to4_nm_per_deg": np.nan,
         }
 
+    # Calculate stiffness using mirrored magnitudes but keep plotting on native axes.
+    theta_branch_calc = -theta_branch_native
+    moment_branch_calc = -moment_branch_native
+
     k_linear_1to5, _, _ = fit_linear_stiffness_on_window(
-        theta_branch,
-        moment_branch,
+        theta_branch_calc,
+        moment_branch_calc,
         COMPARE_LINEAR_LOW_NM,
         COMPARE_LINEAR_HIGH_NM,
     )
     k_chord_1to5, _, _ = compute_two_point_stiffness(
-        theta_branch,
-        moment_branch,
+        theta_branch_calc,
+        moment_branch_calc,
         COMPARE_CHORD_LOW_NM,
         COMPARE_CHORD_HIGH_NM,
     )
     k_secant_0to5, _, _ = compute_two_point_stiffness(
-        theta_branch,
-        moment_branch,
+        theta_branch_calc,
+        moment_branch_calc,
         COMPARE_SECANT_0TO5_LOW_NM,
         COMPARE_SECANT_0TO5_HIGH_NM,
     )
     k_secant_0to4, _, _ = compute_two_point_stiffness(
-        theta_branch,
-        moment_branch,
+        theta_branch_calc,
+        moment_branch_calc,
         COMPARE_SECANT_0TO4_LOW_NM,
         COMPARE_SECANT_0TO4_HIGH_NM,
     )
 
-    theta_m_low = interpolate_theta_at_moment(theta_branch, moment_branch, M_LOW_NM)
-    theta_m_high = interpolate_theta_at_moment(theta_branch, moment_branch, M_HIGH_NM)
-    if not np.isfinite(theta_m_low) or not np.isfinite(theta_m_high):
+    theta_m_low_calc = interpolate_theta_at_moment(theta_branch_calc, moment_branch_calc, M_LOW_NM)
+    theta_m_high_calc = interpolate_theta_at_moment(theta_branch_calc, moment_branch_calc, M_HIGH_NM)
+    if not np.isfinite(theta_m_low_calc) or not np.isfinite(theta_m_high_calc):
         return {
             "Intervention": intervention,
             "Book": book_num,
@@ -203,8 +257,12 @@ def analyze_intervention(intervention: str, book_num: int) -> dict:
             "theta_at_m_high_deg": np.nan,
             "theta_sel": np.array([]),
             "moment_sel": np.array([]),
-            "theta_branch": theta_branch,
-            "moment_branch": moment_branch,
+            "theta_sel_extension": theta_sel_ext,
+            "moment_sel_extension": moment_sel_ext,
+            "extension_fit_valid": bool(extension_fit_valid),
+            "k_sec_extension_nm_per_deg": float(k_sec_extension_nm_per_deg) if np.isfinite(k_sec_extension_nm_per_deg) else np.nan,
+            "theta_branch": theta_branch_native,
+            "moment_branch": moment_branch_native,
             "theta_avg_centered": theta_avg,
             "moment_avg_centered": moment_avg,
             "k_linear_1to5_nm_per_deg": k_linear_1to5,
@@ -213,7 +271,7 @@ def analyze_intervention(intervention: str, book_num: int) -> dict:
             "k_secant_0to4_nm_per_deg": k_secant_0to4,
         }
 
-    dtheta = float(theta_m_high - theta_m_low)
+    dtheta = float(theta_m_high_calc - theta_m_low_calc)
     if abs(dtheta) < 1e-10:
         return {
             "Intervention": intervention,
@@ -226,12 +284,16 @@ def analyze_intervention(intervention: str, book_num: int) -> dict:
             "k_abs_nm_per_deg": np.nan,
             "intercept_nm": np.nan,
             "r2": np.nan,
-            "theta_at_m_low_deg": theta_m_low,
-            "theta_at_m_high_deg": theta_m_high,
+            "theta_at_m_low_deg": -theta_m_low_calc,
+            "theta_at_m_high_deg": -theta_m_high_calc,
             "theta_sel": np.array([]),
             "moment_sel": np.array([]),
-            "theta_branch": theta_branch,
-            "moment_branch": moment_branch,
+            "theta_sel_extension": theta_sel_ext,
+            "moment_sel_extension": moment_sel_ext,
+            "extension_fit_valid": bool(extension_fit_valid),
+            "k_sec_extension_nm_per_deg": float(k_sec_extension_nm_per_deg) if np.isfinite(k_sec_extension_nm_per_deg) else np.nan,
+            "theta_branch": theta_branch_native,
+            "moment_branch": moment_branch_native,
             "theta_avg_centered": theta_avg,
             "moment_avg_centered": moment_avg,
             "k_linear_1to5_nm_per_deg": k_linear_1to5,
@@ -241,10 +303,12 @@ def analyze_intervention(intervention: str, book_num: int) -> dict:
         }
 
     slope = float((M_HIGH_NM - M_LOW_NM) / dtheta)
-    intercept = float(M_LOW_NM - slope * theta_m_low)
+    intercept = float(M_LOW_NM - slope * theta_m_low_calc)
     r2 = np.nan
-    theta_sel = np.asarray([theta_m_low, theta_m_high], dtype=float)
-    moment_sel = np.asarray([M_LOW_NM, M_HIGH_NM], dtype=float)
+    theta_sel_calc = np.asarray([theta_m_low_calc, theta_m_high_calc], dtype=float)
+    moment_sel_calc = np.asarray([M_LOW_NM, M_HIGH_NM], dtype=float)
+    theta_sel = -theta_sel_calc
+    moment_sel = -moment_sel_calc
 
     return {
         "Intervention": intervention,
@@ -257,16 +321,20 @@ def analyze_intervention(intervention: str, book_num: int) -> dict:
         "k_abs_nm_per_deg": abs(slope),
         "intercept_nm": intercept,
         "r2": r2,
-        "theta_at_m_low_deg": theta_m_low,
-        "theta_at_m_high_deg": theta_m_high,
+        "theta_at_m_low_deg": float(theta_sel[0]),
+        "theta_at_m_high_deg": float(theta_sel[1]),
         "theta_min_deg": float(np.min(theta_sel)),
         "theta_max_deg": float(np.max(theta_sel)),
         "moment_min_nm": float(np.min(moment_sel)),
         "moment_max_nm": float(np.max(moment_sel)),
         "theta_sel": theta_sel,
         "moment_sel": moment_sel,
-        "theta_branch": theta_branch,
-        "moment_branch": moment_branch,
+        "theta_sel_extension": theta_sel_ext,
+        "moment_sel_extension": moment_sel_ext,
+        "extension_fit_valid": bool(extension_fit_valid),
+        "k_sec_extension_nm_per_deg": float(k_sec_extension_nm_per_deg) if np.isfinite(k_sec_extension_nm_per_deg) else np.nan,
+        "theta_branch": theta_branch_native,
+        "moment_branch": moment_branch_native,
         "theta_avg_centered": theta_avg,
         "moment_avg_centered": moment_avg,
         "k_linear_1to5_nm_per_deg": k_linear_1to5,
@@ -286,13 +354,17 @@ def plot_fit_panels(results: list[dict], out_png: Path) -> None:
         ax = axes[i // ncols][i % ncols]
         theta_b = rec["theta_branch"]
         moment_b = rec["moment_branch"]
+        theta_ext = np.asarray(rec.get("theta_sel_extension", np.array([])), dtype=float)
+        moment_ext = np.asarray(rec.get("moment_sel_extension", np.array([])), dtype=float)
+        k_flex = float(rec.get("k_abs_nm_per_deg", np.nan)) if rec.get("valid", False) else np.nan
+        k_ext = float(rec.get("k_sec_extension_nm_per_deg", np.nan))
         theta_avg = rec["theta_avg_centered"]
         moment_avg = rec["moment_avg_centered"]
 
         if np.asarray(moment_avg).size and np.asarray(theta_avg).size:
-            ax.plot(theta_avg, moment_avg, color="0.85", lw=1.0, ls="--", label="avg(load/unload), centered")
+            ax.plot(theta_avg, moment_avg, color="0.85", lw=1.0, ls="--", label="avg(load/unload), centered (native)")
 
-        ax.plot(theta_b, moment_b, color="0.80", lw=1.2, label="rising branch")
+        ax.plot(theta_b, moment_b, color="0.80", lw=1.2, label="flexion branch (native negative axes)")
 
         if rec["moment_sel"].size:
             ax.scatter(
@@ -300,6 +372,17 @@ def plot_fit_panels(results: list[dict], out_png: Path) -> None:
                 rec["moment_sel"],
                 s=28,
                 color="tab:red",
+                alpha=0.85,
+                edgecolors="none",
+                label=f"two points: {-int(M_LOW_NM)} and {-int(M_HIGH_NM)} Nm",
+            )
+
+        if theta_ext.size and moment_ext.size:
+            ax.scatter(
+                theta_ext,
+                moment_ext,
+                s=28,
+                color="tab:blue",
                 alpha=0.85,
                 edgecolors="none",
                 label=f"two points: {int(M_LOW_NM)} and {int(M_HIGH_NM)} Nm",
@@ -314,14 +397,25 @@ def plot_fit_panels(results: list[dict], out_png: Path) -> None:
                 color="tab:red",
                 lw=1.3,
                 ls=":",
+                label=f"secant ({-int(M_LOW_NM)} to {-int(M_HIGH_NM)} Nm)",
+            )
+
+        if theta_ext.size and moment_ext.size:
+            ax.plot(
+                theta_ext,
+                moment_ext,
+                color="tab:blue",
+                lw=1.3,
+                ls="-.",
                 label=f"secant ({int(M_LOW_NM)} to {int(M_HIGH_NM)} Nm)",
             )
-            title = f"{rec['Intervention']} | k_sec={rec['k_abs_nm_per_deg']:.3f} Nm/deg"
-        else:
-            title = f"{rec['Intervention']} | N/A ({rec['reason']})"
 
-        ax.axhline(M_LOW_NM, color="0.5", lw=0.8, ls="--", alpha=0.5)
-        ax.axhline(M_HIGH_NM, color="0.5", lw=0.8, ls="--", alpha=0.5)
+        k_flex_txt = f"{k_flex:.3f}" if np.isfinite(k_flex) else "N/A"
+        k_ext_txt = f"{k_ext:.3f}" if np.isfinite(k_ext) else "N/A"
+        title = f"{rec['Intervention']} | k_flex={k_flex_txt}, k_ext={k_ext_txt} Nm/deg"
+
+        ax.axhline(-M_LOW_NM, color="0.5", lw=0.8, ls="--", alpha=0.5)
+        ax.axhline(-M_HIGH_NM, color="0.5", lw=0.8, ls="--", alpha=0.5)
         ax.set_title(title, fontsize=8)
         ax.set_xlabel("theta_rel [deg]")
         ax.set_ylabel("moment_rel [Nm]")
@@ -332,7 +426,7 @@ def plot_fit_panels(results: list[dict], out_png: Path) -> None:
         axes[j // ncols][j % ncols].axis("off")
 
     fig.suptitle(
-        f"MTS only: centered flexion branch two-point secant stiffness ({int(M_LOW_NM)} and {int(M_HIGH_NM)} Nm)",
+        f"MTS only: centered FE branches on native axes, secant fits (extension {int(M_LOW_NM)} to {int(M_HIGH_NM)} Nm, flexion {-int(M_LOW_NM)} to {-int(M_HIGH_NM)} Nm)",
         fontsize=12,
     )
     fig.tight_layout()
@@ -356,7 +450,7 @@ def plot_bar(df: pd.DataFrame, out_png: Path) -> None:
     ax.set_xticks(x)
     ax.set_xticklabels(d["Intervention"].astype(str), rotation=18, ha="right")
     ax.set_ylabel("Stiffness [Nm/deg]")
-    ax.set_title(f"MTS only (Flexion): two-point secant stiffness ({int(M_LOW_NM)} to {int(M_HIGH_NM)} Nm)")
+    ax.set_title(f"MTS only (Flexion, native axes): two-point secant stiffness ({-int(M_LOW_NM)} to {-int(M_HIGH_NM)} Nm)")
     ax.grid(axis="y", linestyle="--", alpha=0.3)
 
     for i, b in enumerate(bars):
@@ -427,7 +521,7 @@ def plot_method_comparison_bar(df: pd.DataFrame, out_png: Path) -> None:
     ax.set_xticks(x)
     ax.set_xticklabels([label for _, label in methods], rotation=0, ha="center")
     ax.set_ylabel("Stiffness [Nm/deg]")
-    ax.set_title("MTS Flexion: stiffness comparison grouped by method")
+    ax.set_title("MTS Flexion (native negative axes): stiffness comparison grouped by method")
     ax.grid(axis="y", linestyle="--", alpha=0.3)
     ax.legend(loc="upper left", fontsize=8, ncol=2)
 
@@ -471,6 +565,7 @@ def main() -> None:
                 "theta_max_deg": float(r.get("theta_max_deg", np.nan)),
                 "moment_min_nm": float(r.get("moment_min_nm", np.nan)),
                 "moment_max_nm": float(r.get("moment_max_nm", np.nan)),
+                "k_sec_extension_nm_per_deg": float(r.get("k_sec_extension_nm_per_deg", np.nan)),
                 "k_linear_1to5_nm_per_deg": float(r.get("k_linear_1to5_nm_per_deg", np.nan)),
                 "k_chord_1to5_nm_per_deg": float(r.get("k_chord_1to5_nm_per_deg", np.nan)),
                 "k_secant_0to5_nm_per_deg": float(r.get("k_secant_0to5_nm_per_deg", np.nan)),
@@ -492,7 +587,7 @@ def main() -> None:
     valid = df[df["valid"]].copy()
     if not valid.empty:
         valid = valid.sort_values("k_abs_nm_per_deg", ascending=False).reset_index(drop=True)
-        print(f"\nMTS flexion stiffness ranking ({int(M_LOW_NM)}-{int(M_HIGH_NM)} Nm two-point secant):")
+        print(f"\nMTS flexion stiffness ranking (native axes: {-int(M_LOW_NM)} to {-int(M_HIGH_NM)} Nm two-point secant):")
         print(valid[["Intervention", "k_abs_nm_per_deg", "theta_at_m_low_deg", "theta_at_m_high_deg"]].to_string(index=False))
 
         print("\nFour-method comparison (Nm/deg):")

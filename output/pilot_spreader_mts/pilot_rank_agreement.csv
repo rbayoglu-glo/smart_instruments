@@ -1,0 +1,5 @@
+spreader_metric,branch,mts_method,n_pairs,spearman_rho,p_exact_permutation,pearson_r,branch_mechanically_matched
+k_lin,Extension,Secant 0-5 Nm,6,-0.3714285714285715,0.49722222222222223,-0.4349034358461986,False
+k_lin,Flexion,Secant 0-5 Nm,6,-0.14285714285714288,0.8027777777777778,-0.2337830207364474,True
+k_rot,Extension,Secant 0-5 Nm,6,-0.3714285714285715,0.49722222222222223,-0.4349034358461989,False
+k_rot,Flexion,Secant 0-5 Nm,6,-0.14285714285714288,0.8027777777777778,-0.2337830207364483,True

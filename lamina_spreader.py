@@ -39,8 +39,10 @@ OUT_DIR = Path(__file__).parent / "output"
 FORCE_COL = "Spreader (SRC2475-LN1-02) on Ch 01.02.02 Calibrated Values"
 SPREADER_UUID = "d80d3bb5-9174-4bf3-811e-e31423da384a"
 
-# Effective force application distance from pivot to contact region midpoint [mm].
+# Contact-region midpoint distance from pivot [mm], used for CAD geometry.
 D_O = 131.87
+# Moment arm to the spreader tip [mm], used for force-to-moment conversion.
+D_TIP = 139.0
 
 # DRB markers in the tracker pattern frame (patterns_0042_*.json, "Excelsius Array #8")
 PATTERN_MARKERS = np.array(
@@ -95,23 +97,23 @@ LAG_BAND = (0.40, 0.90)
 # helpers
 # --------------------------------------------------------------------------- #
 def force_to_moment_nm(force_n):
-    """Convert distraction force [N] to pivot moment [N.m] using current D_O."""
-    return force_n * D_O / 1000.0
+    """Convert distraction force [N] to tip moment [N.m]."""
+    return force_n * D_TIP / 1000.0
 
 
 def moment_to_force_n(moment_nm):
-    """Convert pivot moment [N.m] to distraction force [N] using current D_O."""
-    return moment_nm * 1000.0 / D_O
+    """Convert tip moment [N.m] to distraction force [N]."""
+    return moment_nm * 1000.0 / D_TIP
 
 
 def theta_deg_to_tip_mm(theta_deg):
-    """Convert distraction angle [deg] to tip displacement [mm] using current D_O."""
-    return D_O * np.radians(theta_deg)
+    """Convert distraction angle [deg] to tip displacement [mm] using D_TIP."""
+    return D_TIP * np.radians(theta_deg)
 
 
 def tip_mm_to_theta_deg(delta_tip_mm):
-    """Convert tip displacement [mm] to distraction angle [deg] using current D_O."""
-    return np.degrees(delta_tip_mm / D_O)
+    """Convert tip displacement [mm] to distraction angle [deg] using D_TIP."""
+    return np.degrees(delta_tip_mm / D_TIP)
 
 
 def k_rot_to_k_linear_factor() -> float:

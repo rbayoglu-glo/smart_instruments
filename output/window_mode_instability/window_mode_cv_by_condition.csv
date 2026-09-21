@@ -1,0 +1,25 @@
+metric,condition,subset,n_cycles,cv_pct
+k_rot,Intact,all,8,82.64971668681365
+k_rot,PUF Left,all,9,41.30140803784655
+k_rot,FUF Left,all,9,61.8094845150456
+k_rot,FBF,all,9,26.969786051301845
+k_rot,Posterior Release,all,10,42.329865818203054
+k_rot,SPO,all,6,34.81604972496828
+k_rot,Intact,strict_only,2,66.80240106376253
+k_rot,PUF Left,strict_only,8,39.20828490732654
+k_rot,FUF Left,strict_only,7,49.59616874587957
+k_rot,FBF,strict_only,9,26.969786051301845
+k_rot,Posterior Release,strict_only,7,20.253068880582767
+k_rot,SPO,strict_only,6,34.81604972496828
+k_lin,Intact,all,8,82.64971668681376
+k_lin,PUF Left,all,9,41.301408037846514
+k_lin,FUF Left,all,9,61.80948451504556
+k_lin,FBF,all,9,26.969786051301842
+k_lin,Posterior Release,all,10,42.32986581820304
+k_lin,SPO,all,6,34.81604972496828
+k_lin,Intact,strict_only,2,66.80240106376256
+k_lin,PUF Left,strict_only,8,39.208284907326515
+k_lin,FUF Left,strict_only,7,49.596168745879545
+k_lin,FBF,strict_only,9,26.969786051301842
+k_lin,Posterior Release,strict_only,7,20.25306888058278
+k_lin,SPO,strict_only,6,34.81604972496828

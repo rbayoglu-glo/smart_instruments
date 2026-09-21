@@ -19,10 +19,13 @@ INTERVENTION_FIGS = [
     "SPO_stiffness.png",
 ]
 
-FIG_FLEXION_PANELS = OUT / "mts_flexion_1to5_linear_fit_panels.png"
-FIG_FLEXION_BAR = OUT / "mts_flexion_1to5_linear_fit_stiffness_bar.png"
+FIG_FLEXION_PANELS = OUT / "mts_flexion_0to5_secant_fit_panels.png"
+FIG_FLEXION_BAR = OUT / "mts_flexion_0to5_secant_stiffness_bar.png"
+FIG_FLEXION_METHODS = OUT / "mts_flexion_stiffness_four_methods_bar.png"
+FIG_EXTENSION_BAR = OUT / "mts_extension_0to5_secant_stiffness_bar.png"
+FIG_EXTENSION_METHODS = OUT / "mts_extension_stiffness_four_methods_bar.png"
 FIG_COEFF = OUT / "fe_coefficient_illustration.png"
-CSV_FLEXION = OUT / "mts_flexion_1to5_linear_fit_stiffness.csv"
+CSV_FLEXION = OUT / "mts_flexion_0to5_secant_stiffness.csv"
 
 TITLE_FONT = Pt(32)
 SUBTITLE_FONT = Pt(18)
@@ -71,7 +74,7 @@ def add_ranking_slide(prs: Presentation) -> None:
     df = df.sort_values("k_abs_nm_per_deg", ascending=False).reset_index(drop=True)
 
     lines = [
-        "MTS Flexion Ranking (1-5 Nm, centered branch)",
+        "MTS Flexion Ranking (native negative axes, 0 to -5 Nm secant)",
         "",
         "Rank  Intervention          k [Nm/deg]   R2      n_points",
         "----------------------------------------------------------",
@@ -82,7 +85,7 @@ def add_ranking_slide(prs: Presentation) -> None:
         )
 
     slide = prs.slides.add_slide(prs.slide_layouts[5])
-    set_title(slide.shapes.title, "MTS 1-5 Nm Stiffness Ranking", size=Pt(26))
+    set_title(slide.shapes.title, "MTS Flexion Stiffness Ranking", size=Pt(26))
 
     box = slide.shapes.add_textbox(Inches(0.7), Inches(1.0), Inches(12.0), Inches(5.9))
     tf = box.text_frame
@@ -120,7 +123,8 @@ def main() -> None:
             "Cycle basis: third cycle, centered avg(load/unload)",
             "Model: M(theta) = C1*theta + C2*theta^2 + C3*theta^3",
             "Plot orientation: angle on x-axis, moment on y-axis",
-            "Flexion ranking window: 1-5 Nm",
+            "Flexion branch display: native negative theta and negative moment",
+            "Flexion stiffness window: 0 to -5 Nm secant",
         ],
     )
 
@@ -133,8 +137,11 @@ def main() -> None:
         add_image_slide(prs, f"Intervention: {title}", image_path)
 
     # Flexion 1-5 summaries
-    add_image_slide(prs, "MTS Flexion: 1-5 Nm Fit Panels", FIG_FLEXION_PANELS)
-    add_image_slide(prs, "MTS Flexion: 1-5 Nm Stiffness Bar", FIG_FLEXION_BAR)
+    add_image_slide(prs, "MTS FE (Native Axes): Extension 0-5 and Flexion 0 to -5 Nm Secant Fit Panels", FIG_FLEXION_PANELS)
+    add_image_slide(prs, "MTS Flexion (Native Negative Axes): 0 to -5 Nm Secant Stiffness Bar", FIG_FLEXION_BAR)
+    add_image_slide(prs, "MTS Flexion (Native Negative Axes): Four-Method Stiffness Comparison", FIG_FLEXION_METHODS)
+    add_image_slide(prs, "MTS Extension (Native Positive Axes): 0 to 5 Nm Secant Stiffness Bar", FIG_EXTENSION_BAR)
+    add_image_slide(prs, "MTS Extension (Native Positive Axes): Four-Method Stiffness Comparison", FIG_EXTENSION_METHODS)
 
     # Coefficient illustration
     add_image_slide(prs, "Coefficient Illustration (FE)", FIG_COEFF)

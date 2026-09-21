@@ -97,37 +97,32 @@ def extract_centered_positive_extension_branch(
     angle_cycle_deg: np.ndarray,
     moment_cycle_nm: np.ndarray,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, str]:
-    """Use centered averaged curve and mirror extension branch to positive axes."""
+    """Use centered averaged curve and extract native positive extension branch."""
     m_avg, a_avg, _, _ = mts.compute_centered_average_curve(angle_cycle_deg, moment_cycle_nm)
     if m_avg.size < 3 or a_avg.size < 3:
         return np.array([]), np.array([]), a_avg, m_avg, "centered_curve_too_short"
 
-    # Mirror the centered curve so extension can be treated with the same
-    # positive-window stiffness calculations used for flexion.
-    a_ext = -a_avg
-    m_ext = -m_avg
-
     mask = (
-        np.isfinite(a_ext)
-        & np.isfinite(m_ext)
-        & (a_ext >= 0.0)
-        & (m_ext >= 0.0)
-        & (m_ext <= (MAX_MOMENT_NM + 1e-9))
+        np.isfinite(a_avg)
+        & np.isfinite(m_avg)
+        & (a_avg >= 0.0)
+        & (m_avg >= 0.0)
+        & (m_avg <= (MAX_MOMENT_NM + 1e-9))
     )
     idx = np.flatnonzero(mask)
     if idx.size < 3:
-        return np.array([]), np.array([]), a_ext, m_ext, "no_positive_extension_branch"
+        return np.array([]), np.array([]), a_avg, m_avg, "no_positive_extension_branch"
 
-    # Keep the largest contiguous run on the extension branch after mirroring.
+    # Keep the largest contiguous run on the native positive extension branch.
     breaks = np.where(np.diff(idx) > 1)[0] + 1
     runs = np.split(idx, breaks)
     run = max(runs, key=lambda r: r.size)
     if run.size < 3:
-        return np.array([]), np.array([]), a_ext, m_ext, "positive_branch_too_short"
+        return np.array([]), np.array([]), a_avg, m_avg, "positive_branch_too_short"
 
-    theta_branch = a_ext[run]
-    moment_branch = m_ext[run]
-    return theta_branch, moment_branch, a_ext, m_ext, "ok"
+    theta_branch = a_avg[run]
+    moment_branch = m_avg[run]
+    return theta_branch, moment_branch, a_avg, m_avg, "ok"
 
 
 def analyze_intervention(intervention: str, book_num: int) -> dict:
@@ -297,7 +292,7 @@ def plot_fit_panels(results: list[dict], out_png: Path) -> None:
         if np.asarray(moment_avg).size and np.asarray(theta_avg).size:
             ax.plot(theta_avg, moment_avg, color="0.85", lw=1.0, ls="--", label="avg(load/unload), centered")
 
-        ax.plot(theta_b, moment_b, color="0.80", lw=1.2, label="extension branch (mirrored)")
+        ax.plot(theta_b, moment_b, color="0.80", lw=1.2, label="extension branch (native positive axes)")
 
         if rec["moment_sel"].size:
             ax.scatter(
@@ -337,7 +332,7 @@ def plot_fit_panels(results: list[dict], out_png: Path) -> None:
         axes[j // ncols][j % ncols].axis("off")
 
     fig.suptitle(
-        f"MTS only: centered extension branch two-point secant stiffness ({int(M_LOW_NM)} and {int(M_HIGH_NM)} Nm)",
+        f"MTS only: centered extension branch on native positive axes, two-point secant stiffness ({int(M_LOW_NM)} and {int(M_HIGH_NM)} Nm)",
         fontsize=12,
     )
     fig.tight_layout()

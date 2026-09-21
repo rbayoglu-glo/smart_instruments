@@ -43,6 +43,13 @@ def fit_cubic_no_intercept(theta_deg: np.ndarray, moment_nm: np.ndarray) -> tupl
     return float(coeff[0]), float(coeff[1]), float(coeff[2]), rmse
 
 
+def map_mts_to_zhang_sign(theta_deg: np.ndarray, moment_nm: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Zhang 2020 FE convention: flexion positive, extension negative."""
+    theta = -np.asarray(theta_deg, dtype=float)
+    moment = -np.asarray(moment_nm, dtype=float)
+    return theta, moment
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -59,8 +66,15 @@ def main() -> None:
 
     moment_avg_centered, angle_avg_centered, _, _ = mts.compute_centered_average_curve(angle_cycle, moment_cycle)
 
-    theta_meas = np.asarray(angle_avg_centered, dtype=float)
-    moment_meas = np.asarray(moment_avg_centered, dtype=float)
+    theta_native = np.asarray(angle_avg_centered, dtype=float)
+    moment_native = np.asarray(moment_avg_centered, dtype=float)
+
+    # Map MTS FE data to Zhang 2020 sign convention for direct comparison.
+    theta_meas, moment_meas = map_mts_to_zhang_sign(theta_native, moment_native)
+
+    order = np.argsort(theta_meas)
+    theta_meas = theta_meas[order]
+    moment_meas = moment_meas[order]
 
     # Re-fit C1/C2/C3 from full FE centered data (both extension and flexion).
     fit_c1, fit_c2, fit_c3, fit_rmse_nm = fit_cubic_no_intercept(theta_meas, moment_meas)
@@ -79,8 +93,8 @@ def main() -> None:
 
     out_df = pd.DataFrame(
         {
-            "theta_deg": theta_meas,
-            "moment_mts_centered_nm": moment_meas,
+            "theta_deg_zhang_sign": theta_meas,
+            "moment_mts_centered_nm_zhang_sign": moment_meas,
             "moment_mts_refit_cubic_nm": fit_c3 * theta_meas**3 + fit_c2 * theta_meas**2 + fit_c1 * theta_meas,
             "moment_paper_f0_nm": moment_paper_f0_at_meas,
             "moment_paper_f500_nm": moment_paper_f500_at_meas,
@@ -93,7 +107,7 @@ def main() -> None:
 
     fig, ax = plt.subplots(figsize=(9, 6), dpi=200)
 
-    ax.plot(theta_meas, moment_meas, color="tab:red", lw=2.0, label="Intact avg(load/unload), centered")
+    ax.plot(theta_meas, moment_meas, color="tab:red", lw=2.0, label="Intact avg(load/unload), centered (Zhang sign)")
     ax.plot(theta_plot, moment_fit_plot, color="tab:blue", lw=1.8, ls="-.", label="MTS refit cubic (full FE)")
     ax.plot(theta_plot, moment_paper_f0_plot, color="black", lw=1.8, ls="--", label="Paper Eqn4 at F=0 (L5-S1)")
     ax.plot(theta_plot, moment_paper_f500_plot, color="tab:green", lw=1.8, ls=":", label="Paper Eqn4 at F=500 (L5-S1)")
@@ -102,9 +116,9 @@ def main() -> None:
     ax.axvline(0.0, color="0.4", lw=0.8)
     ax.grid(True, linestyle="--", alpha=0.35)
 
-    ax.set_xlabel("Rotation angle (deg)")
+    ax.set_xlabel("Rotation angle (deg)  [Extension (-), Flexion (+)]")
     ax.set_ylabel("Moment (Nm)")
-    ax.set_title("L5-S1 FE (Intact): MTS full-FE refit vs paper model at F=0")
+    ax.set_title("L5-S1 FE (Intact): MTS full-FE refit vs paper model (Zhang 2020 sign)")
 
     coeff_text = (
         f"MTS refit (full FE): C1={fit_c1:.4f}, C2={fit_c2:.4f}, C3={fit_c3:.4f}\n"
