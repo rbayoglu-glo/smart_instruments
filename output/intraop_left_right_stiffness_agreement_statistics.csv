@@ -1,0 +1,9 @@
+statistic,value
+n_paired_levels,4.0
+bias_right_minus_left_n_per_mm,-0.09368713453051614
+bias_ci95_lower_n_per_mm,-5.062775320502444
+bias_ci95_upper_n_per_mm,4.875401051441413
+sd_paired_difference_n_per_mm,3.1228103850311126
+loa_lower_n_per_mm,-6.214395489191498
+loa_upper_n_per_mm,6.0270212201304645
+pearson_correlation_descriptive,-0.2672442931638712

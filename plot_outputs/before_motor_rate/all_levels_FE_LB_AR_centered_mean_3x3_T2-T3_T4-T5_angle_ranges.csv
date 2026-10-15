@@ -1,0 +1,49 @@
+level,axis,cycle,intervention_order,intervention,curve_type,angle_min_deg,angle_max_deg,moment_min_nm,moment_max_nm,n_points
+T2-T3,FE,3,1,Intact,centered_loading_ramp,-4.945037769372053,4.289272410857844,-8.121,8.278,999
+T2-T3,FE,3,2,Partial facetectomy 1,centered_loading_ramp,-5.27906430286463,3.97999574973324,-8.09,8.707,999
+T2-T3,FE,2,3,Partial facetectomy 2,centered_loading_ramp,-5.522363369891751,4.196026658982073,-8.28,8.22,999
+T2-T3,FE,3,4,Full uni facetectomy,centered_loading_ramp,-5.271341926517635,4.523038403464191,-8.183,8.083,999
+T2-T3,FE,3,5,Full bilat facetectomy,centered_loading_ramp,-5.229488545301801,4.333616752029412,-7.999,8.034,999
+T2-T3,FE,3,6,Resected Ligamentum Flavum,centered_loading_ramp,-5.371809256479176,4.583848911275072,-7.758,7.947,999
+T2-T3,FE,3,7,Laminectomy,centered_loading_ramp,-8.815390870181421,7.891098966119653,-7.987,7.703,999
+T2-T3,FE,3,8,PLL Release,centered_loading_ramp,-8.382499704882221,8.340482913023427,-7.632,7.643,999
+T2-T3,LB,3,1,Intact,centered_loading_ramp,-5.585063765020977,7.231910820946378,-8.151,8.087,999
+T2-T3,LB,3,2,Partial facetectomy 1,centered_loading_ramp,-5.785258263332243,7.603040766043951,-8.157,8.103,999
+T2-T3,LB,3,3,Partial facetectomy 2,centered_loading_ramp,-5.923124401384511,7.665875550384994,-8.054,8.26,999
+T2-T3,LB,3,4,Full uni facetectomy,centered_loading_ramp,-6.198004930168574,7.575367703519831,-8.11,7.952,999
+T2-T3,LB,3,5,Full bilat facetectomy,centered_loading_ramp,-6.068271151710298,7.8761472424431505,-8.005,8.264,999
+T2-T3,LB,3,6,Resected Ligamentum Flavum,centered_loading_ramp,-6.398421105182996,7.973199736536106,-8.129,8.183,999
+T2-T3,LB,3,7,Laminectomy,centered_loading_ramp,-6.337970395445194,8.46093552182254,-7.937,7.867,999
+T2-T3,LB,3,8,PLL Release,centered_loading_ramp,-6.470332766961891,8.281949455549704,-8.084,7.948,999
+T2-T3,AR,3,1,Intact,centered_loading_ramp,-4.891401835530654,4.686319450237567,-8.325,8.495,999
+T2-T3,AR,3,2,Partial facetectomy 1,centered_loading_ramp,-4.977101528514216,5.094298794249141,-8.467,8.22,999
+T2-T3,AR,3,3,Partial facetectomy 2,centered_loading_ramp,-5.436058360102931,5.274317585383838,-8.533,8.457,999
+T2-T3,AR,3,4,Full uni facetectomy,centered_loading_ramp,-5.460602639897464,5.212709689497614,-8.482,8.271,999
+T2-T3,AR,3,5,Full bilat facetectomy,centered_loading_ramp,-5.541528578714269,5.595715688005807,-8.299,8.26,999
+T2-T3,AR,3,6,Resected Ligamentum Flavum,centered_loading_ramp,-5.583794028552734,5.687749880332528,-8.29,8.41,999
+T2-T3,AR,3,7,Laminectomy,centered_loading_ramp,-8.80797547525113,8.598553926769059,-7.958,8.064,999
+T2-T3,AR,3,8,PLL Release,centered_loading_ramp,-9.419155833650908,8.60448984720342,-7.899,8.048,999
+T4-T5,FE,3,1,Intact,centered_loading_ramp,-4.460359244351958,2.723498776072134,-8.027,8.09,999
+T4-T5,FE,3,2,Partial facetectomy 1,centered_loading_ramp,-4.792599957539334,3.079697447495098,-7.997,8.586,999
+T4-T5,FE,3,3,Partial facetectomy 2,centered_loading_ramp,-4.978783875451371,3.3227884425641974,-8.343,8.391,999
+T4-T5,FE,3,4,Full uni facetectomy,centered_loading_ramp,-5.31286962401474,3.2091476541251898,-8.462,8.022,999
+T4-T5,FE,3,5,Full bilat facetectomy,centered_loading_ramp,-5.010534895354256,3.177314119194937,-8.273,7.885,999
+T4-T5,FE,3,6,Resected Ligamentum Flavum,centered_loading_ramp,-5.085122114073663,3.443438877814297,-7.918,8.49,999
+T4-T5,FE,3,7,Laminectomy,centered_loading_ramp,-5.74440120318565,4.89298172794359,-7.873,7.794,999
+T4-T5,FE,3,8,PLL Release,centered_loading_ramp,-6.406867416051753,5.076114365793949,-8.401,8.341,999
+T4-T5,LB,3,1,Intact,centered_loading_ramp,-4.407489602005432,5.065980178956689,-8.134,8.059,999
+T4-T5,LB,3,2,Partial facetectomy 1,centered_loading_ramp,-4.51251140379132,5.349278411194248,-8.145,8.126,999
+T4-T5,LB,3,3,Partial facetectomy 2,centered_loading_ramp,-4.818507828481599,5.555855813732965,-8.096,8.035,999
+T4-T5,LB,3,4,Full uni facetectomy,centered_loading_ramp,-4.813999822951891,5.651903583624891,-7.946,8.214,999
+T4-T5,LB,3,5,Full bilat facetectomy,centered_loading_ramp,-4.906337896807162,5.604003592292712,-8.084,8.023,999
+T4-T5,LB,3,6,Resected Ligamentum Flavum,centered_loading_ramp,-5.039813795664703,5.677841977831922,-8.127,7.861,999
+T4-T5,LB,3,7,Laminectomy,centered_loading_ramp,-5.08848903230224,6.135805223697959,-7.944,8.127,999
+T4-T5,LB,3,8,PLL Release,centered_loading_ramp,-5.167864569622022,6.078980653517991,-7.926,7.955,999
+T4-T5,AR,3,1,Intact,centered_loading_ramp,-3.8525902625126784,3.080591143297263,-8.524,8.28,999
+T4-T5,AR,3,2,Partial facetectomy 1,centered_loading_ramp,-4.029123480870239,3.420541326662668,-8.762,8.508,999
+T4-T5,AR,3,3,Partial facetectomy 2,centered_loading_ramp,-4.024860361729523,3.2513616099633142,-8.762,8.64,999
+T4-T5,AR,3,4,Full uni facetectomy,centered_loading_ramp,-4.261137255857044,3.474072238653004,-8.722,8.441,999
+T4-T5,AR,3,5,Full bilat facetectomy,centered_loading_ramp,-4.359664437461774,3.490744626314431,-8.376,8.242,999
+T4-T5,AR,3,6,Resected Ligamentum Flavum,centered_loading_ramp,-4.2756444716713,3.7391743895734217,-8.162,8.472,999
+T4-T5,AR,3,7,Laminectomy,centered_loading_ramp,-6.941129657813183,6.208188373803846,-8.112,7.924,999
+T4-T5,AR,3,8,PLL Release,centered_loading_ramp,-7.012389617147984,6.355249726859527,-7.983,8.059,999

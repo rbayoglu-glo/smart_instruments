@@ -1,0 +1,2 @@
+trial,cycle,cycle_peak_force_n,fit_force_low_n,r2_threshold,fit_force_high_n,ok,reason,slope_force_range_n_per_mm,intercept_n,r2,span_mm,fit_start,fit_end
+T2-T3 Right,7,72.41027328456502,22.0,0.95,67.0,True,ok,14.779071371168797,-1.951402242322577,0.9999860430110148,3.0873670953844536,150,199

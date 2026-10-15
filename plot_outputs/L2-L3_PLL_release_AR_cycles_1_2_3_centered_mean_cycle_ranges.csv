@@ -1,0 +1,4 @@
+level,intervention,cycle,curve_type,cycle_start_s,cycle_end_s,n_motor_rows,n_cycle_rows,opto_sample_coverage_fraction,opto_time_coverage_fraction,raw_angle_min_deg,raw_angle_max_deg,display_angle_min_deg,display_angle_max_deg,moment_min_nm,moment_max_nm
+L2-L3,PLL Release,1,partial_observed_trace,0.0,7.767786600496278,80,74,0.925,0.9412960186147665,-2.234212,0.1368759999999986,-2.234212,0.1368759999999986,-8.632,8.507
+L2-L3,PLL Release,2,centered_loading_unloading_mean,7.767786600496278,15.368628865979382,76,76,1.0,1.0,-2.194311,2.025097799999995,-2.0164407171737326,2.159079740354695,-8.599,8.574
+L2-L3,PLL Release,3,centered_loading_unloading_mean,15.368628865979382,22.983922077922077,76,76,1.0,1.0,-2.234701535199998,2.030425200400001,-1.9862640561280673,2.2331371549451586,-8.569,8.599

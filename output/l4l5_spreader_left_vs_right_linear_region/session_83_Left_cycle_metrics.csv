@@ -1,0 +1,2 @@
+cycle,valid,reason,k_linear_n_per_mm,intercept_n,r2,fit_n_points,fit_span_mm,fit_x0_mm,fit_x1_mm,fit_f0_n,fit_f1_n,fit_selection_mode,flat_slope_thr_n_per_mm,flat_filter_reason,theta_start_deg,non_neutral_start
+1,False,no_valid_linear_window,,,,,,,,,,,4.986461728275197,ok,-0.0019011072468014126,False

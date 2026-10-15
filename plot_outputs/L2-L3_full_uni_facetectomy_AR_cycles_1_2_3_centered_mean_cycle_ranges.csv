@@ -1,0 +1,4 @@
+level,intervention,cycle,curve_type,cycle_start_s,cycle_end_s,n_motor_rows,n_cycle_rows,opto_sample_coverage_fraction,opto_time_coverage_fraction,raw_angle_min_deg,raw_angle_max_deg,display_angle_min_deg,display_angle_max_deg,moment_min_nm,moment_max_nm
+L2-L3,Full uni facetectomy,1,partial_observed_trace,0.0,5.958945619335347,62,57,0.9193548387096774,0.9459637626235103,-1.7729870532000098,0.10146110869998991,-1.7729870532000098,0.10146110869998991,-9.038,8.614
+L2-L3,Full uni facetectomy,2,centered_loading_unloading_mean,5.958945619335347,11.75960180995475,58,58,1.0,1.0,-1.7653189227000006,1.1769199633999992,-1.4499595764597024,1.4641228872693306,-8.965,8.667
+L2-L3,Full uni facetectomy,3,centered_loading_unloading_mean,11.75960180995475,17.570653386454183,58,58,1.0,1.0,-1.7584829547999983,1.1702772743999998,-1.3783314007559908,1.5160540387062733,-8.959,8.647
